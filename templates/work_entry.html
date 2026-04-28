@@ -325,7 +325,8 @@
         let total = 0;
         todayEntries.forEach((entry, idx) => {
             const row = document.createElement('tr');
-            const durationStr = entry.minutes ? `${entry.minutes} min` : '-';
+            // Show minutes for Hold services (code 'H'), blank for others
+            const durationStr = entry.service_code === 'H' ? (entry.minutes ? `${entry.minutes} min` : '-') : '';
             
             row.innerHTML = `
                 <td>${entry.date}</td>
@@ -333,7 +334,7 @@
                 <td>${entry.service_name}</td>
                 <td>${durationStr}</td>
                 <td>£${entry.cost.toFixed(2)}</td>
-                <td><button class="button danger" onclick="deleteEntry(${entry.id})">Delete</button></td>
+                <td><button style="background-color: #dc3545; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 14px;" onclick="deleteEntry(${entry.id})">Delete</button></td>
             `;
             
             body.appendChild(row);
@@ -411,7 +412,7 @@
                             <td>${entry.service_name}</td>
                             <td>${durationText}</td>
                             <td>£${entry.cost.toFixed(2)}</td>
-                            <td><button onclick="deleteWorkEntry(${entry.id})" class="btn btn-danger btn-sm">Delete</button></td>
+                            <td><button onclick="deleteWorkEntry(${entry.id})" style="background-color: #dc3545; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 14px;">Delete</button></td>
                         </tr>`;
                     });
                 });
