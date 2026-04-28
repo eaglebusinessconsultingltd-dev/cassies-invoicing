@@ -860,8 +860,9 @@ def generate_invoice_pdf(owner_id, month, year, work_entries):
     # Build content
     elements = []
     
-    # Header: INVOICE (left) and Company (right) on same line
-    header_table = Table([['INVOICE', 'Cassie White Equestrian Services']], colWidths=[2*cm, 4*cm])
+    # Header: INVOICE (left) and Company (right) on same line - use full width
+    # A4 width is 21cm, with 0.5cm margins on each side = 20cm available
+    header_table = Table([['INVOICE', 'Cassie White Equestrian Services']], colWidths=[5*cm, 15*cm])
     header_table.setStyle(TableStyle([
         ('ALIGN', (0, 0), (0, 0), 'LEFT'),
         ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
@@ -900,7 +901,11 @@ def generate_invoice_pdf(owner_id, month, year, work_entries):
     table_data = []
     
     # Header row 1: Horse names (will be merged across 2 columns each)
-    header_row_1 = ['Date'] + horses
+    # Need to interleave horse names with empty strings for the Price columns they'll span
+    header_row_1 = ['Date']
+    for horse in horses:
+        header_row_1.append(horse)
+        header_row_1.append('')  # Empty cell for Price column (will be spanned)
     table_data.append(header_row_1)
     
     # Header row 2: Service | Price labels for each horse
@@ -961,10 +966,12 @@ def generate_invoice_pdf(owner_id, month, year, work_entries):
     table_data.append(subtotal_row)
     
     # Table column widths: Date | (Service, Price) pairs for each horse
-    date_col_width = 2*cm
-    pair_width = (A4[0] - 4*cm - date_col_width) / len(horses)
-    service_col_width = pair_width * 0.6  # 60% for service name
-    price_col_width = pair_width * 0.4    # 40% for price
+    # A4 width = 21cm, with 0.5cm margins = 20cm available
+    available_width = A4[0] - 1*cm  # 20cm
+    date_col_width = 1.8*cm
+    pair_width = (available_width - date_col_width) / len(horses)
+    service_col_width = pair_width * 0.65  # 65% for service name
+    price_col_width = pair_width * 0.35    # 35% for price
     col_widths = [date_col_width] + [service_col_width, price_col_width] * len(horses)
     table = Table(table_data, colWidths=col_widths)
     
