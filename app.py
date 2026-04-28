@@ -659,6 +659,18 @@ def delete_owner(owner_id):
     return '', 204
 
 
+@app.route('/api/horses', methods=['GET'])
+def get_horses():
+    """Get all horses."""
+    horses = Horse.query.all()
+    return jsonify([{
+        'id': horse.id,
+        'name': horse.name,
+        'owner_id': horse.owner_id,
+        'owner_name': horse.owner.name if horse.owner else None,
+    } for horse in horses])
+
+
 @app.route('/api/horses', methods=['POST'])
 def create_horse():
     """Create a new horse."""
