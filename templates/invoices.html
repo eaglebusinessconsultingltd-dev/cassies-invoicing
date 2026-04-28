@@ -113,9 +113,31 @@
         this.textContent = 'Generating...';
         
         try {
-            // For now, just show a message
-            // In the real implementation, this would call a backend API to generate PDFs
-            showAlert('PDF generation coming soon! (Requires integration with reporting library)', 'info');
+            // Call backend to generate all invoices
+            const response = await fetch('/api/invoices/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    month: parseInt(month),
+                    year: parseInt(year)
+                })
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                showAlert(`Generated ${result.generated} invoice${result.generated !== 1 ? 's' : ''}`, 'success');
+                
+                // Reload invoices list
+                loadInvoices();
+                
+                // If any errors, show them
+                if (result.errors && result.errors.length > 0) {
+                    showAlert('Some errors occurred: ' + result.errors.join('; '), 'warning');
+                }
+            } else {
+                showAlert('Error: ' + (result.error || 'Unknown error'), 'error');
+            }
         } catch (error) {
             showAlert('Error generating invoices: ' + error.message, 'error');
         } finally {
