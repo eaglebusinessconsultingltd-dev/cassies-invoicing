@@ -14,17 +14,16 @@
     
     <div class="grid">
         <div>
-            <label for="work-owner">Owner <span style="color: red;">*</span></label>
-            <select id="work-owner" required>
-                <option value="">-- Select Owner --</option>
-            </select>
-        </div>
-        
-        <div>
             <label for="work-horse">Horse <span style="color: red;">*</span></label>
             <select id="work-horse" required>
                 <option value="">-- Select Horse --</option>
             </select>
+        </div>
+        
+        <div>
+            <label for="work-owner">Owner <span style="color: red;">*</span></label>
+            <input type="text" id="work-owner" readonly placeholder="Auto-populated from horse">
+            <input type="hidden" id="work-owner-id">
         </div>
     </div>
     
@@ -127,18 +126,12 @@
                 const option = document.createElement('option');
                 option.value = horse.id;
                 option.textContent = horse.name;
-                option.dataset.ownerId = horse.owner_id;  // Store owner ID as data attribute
+                option.dataset.ownerId = horse.owner_id;  // Store owner ID
+                option.dataset.ownerName = horse.owner_name;  // Store owner name
                 horseSelect.appendChild(option);
             });
             
-            // Populate owner dropdown (for reference, will auto-populate on horse selection)
-            const ownerSelect = document.getElementById('work-owner');
-            owners.forEach(owner => {
-                const option = document.createElement('option');
-                option.value = owner.id;
-                option.textContent = owner.name;
-                ownerSelect.appendChild(option);
-            });
+            // Don't populate owner dropdown - it's now auto-filled from horse selection
             
             // Load services
             const serviceResponse = await fetch('/api/services');
@@ -173,17 +166,21 @@
     document.getElementById('work-horse').addEventListener('change', function() {
         const selectedHorse = this.options[this.selectedIndex];
         const ownerId = selectedHorse.dataset.ownerId;
+        const ownerName = selectedHorse.dataset.ownerName;
         
-        if (ownerId) {
-            document.getElementById('work-owner').value = ownerId;
+        if (ownerName) {
+            document.getElementById('work-owner').value = ownerName;
+            // Store owner ID in a hidden field for form submission
+            document.getElementById('work-owner-id').value = ownerId;
         } else {
             document.getElementById('work-owner').value = '';
+            document.getElementById('work-owner-id').value = '';
         }
     });
     
     // Handle owner selection (kept for backwards compatibility, but horse selection drives it now)
     document.getElementById('work-owner').addEventListener('change', function() {
-        // Owner is now auto-set by horse selection, but keep this for manual overrides if needed
+        // Owner is now auto-set by horse selection, read-only field
     });
     
     // Handle service selection
