@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="card">
+    <h2>Welcome to Cassie's Invoicing System</h2>
+    <p>This app helps you manage work entries and generate invoices for your horse grooming services.</p>
+    
+    <div style="margin-top: 2rem;">
+        <h3>Quick Start</h3>
+        <ol style="margin-left: 1.5rem; line-height: 2;">
+            <li><strong>Add Work:</strong> Go to <a href="/work-entry">Add Work</a> and enter the date, horse, and services performed.</li>
+            <li><strong>Generate Invoice:</strong> Go to <a href="/invoices">Invoices</a> to generate and download PDFs for each owner.</li>
+            <li><strong>View History:</strong> All invoices are saved and can be downloaded anytime.</li>
+            <li><strong>Manage Data:</strong> Update owners, horses, and pricing in <a href="/settings">Settings</a>.</li>
+        </ol>
+    </div>
+</div>
+
+<div class="grid">
+    <div class="card">
+        <h3>📋 Services Available</h3>
+        <div id="services-list" class="loading">
+            <div class="spinner"></div>
+            Loading services...
+        </div>
+    </div>
+    
+    <div class="card">
+        <h3>📊 This Month Summary</h3>
+        <div id="summary-stats">
+            <p>Work entries: <strong id="work-count">0</strong></p>
+            <p>Owners invoiced: <strong id="owner-count">0</strong></p>
+            <p>Total revenue: <strong id="total-revenue">£0.00</strong></p>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Load services
+    async function loadServices() {
+        try {
+            const response = await fetch('/api/services');
+            const services = await response.json();
+            
+            const listEl = document.getElementById('services-list');
+            
+            if (services.length === 0) {
+                listEl.innerHTML = '<p>No services configured.</p>';
+                return;
+            }
+            
+            let html = '<table><thead><tr><th>Code</th><th>Service</th><th>Price</th></tr></thead><tbody>';
+            services.forEach(service => {
+                const price = service.requires_time 
+                    ? `Variable (from £${service.base_price.toFixed(2)})`
+                    : `£${service.base_price.toFixed(2)}`;
+                html += `<tr><td><strong>${service.code}</strong></td><td>${service.name}</td><td>${price}</td></tr>`;
+            });
+            html += '</tbody></table>';
+            
+            listEl.innerHTML = html;
+        } catch (error) {
+            console.error('Error loading services:', error);
+            document.getElementById('services-list').innerHTML = '<p class="alert alert-error">Error loading services.</p>';
+        }
+    }
+    
+    // Load summary stats
+    async function loadSummary() {
+        try {
+            const today = new Date();
+            const month_start = new Date(today.getFullYear(), today.getMonth(), 1);
+            const month_end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+            
+            const start_str = month_start.toISOString().split('T')[0];
+            const end_str = month_end.toISOString().split('T')[0];
+            
+            const response = await fetch(`/api/work-entries?start=${start_str}&end=${end_str}`);
+            const entries = await response.json();
+            
+            const owners = new Set(entries.map(e => e.owner_name));
+            const total = entries.reduce((sum, e) => sum + e.cost, 0);
+            
+            document.getElementById('work-count').textContent = entries.length;
+            document.getElementById('owner-count').textContent = owners.size;
+            document.getElementById('total-revenue').textContent = `£${total.toFixed(2)}`;
+        } catch (error) {
+            console.error('Error loading summary:', error);
+        }
+    }
+    
+    // Load on page load
+    loadServices();
+    loadSummary();
+    
+    // Refresh every 30 seconds
+    setInterval(loadSummary, 30000);
+</script>
+{% endblock %}

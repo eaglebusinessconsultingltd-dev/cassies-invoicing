@@ -1,0 +1,421 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="card">
+    <h2>Add Work Entry</h2>
+    <p>Record the work you've done for a horse. You can add multiple services for the same day.</p>
+    
+    <div id="alert-container"></div>
+    
+    <div class="form-group">
+        <label for="work-date">Date <span style="color: red;">*</span></label>
+        <input type="date" id="work-date" required>
+    </div>
+    
+    <div class="grid">
+        <div>
+            <label for="work-owner">Owner <span style="color: red;">*</span></label>
+            <select id="work-owner" required>
+                <option value="">-- Select Owner --</option>
+            </select>
+        </div>
+        
+        <div>
+            <label for="work-horse">Horse <span style="color: red;">*</span></label>
+            <select id="work-horse" required>
+                <option value="">-- Select Horse --</option>
+            </select>
+        </div>
+    </div>
+    
+    <div class="grid">
+        <div>
+            <label for="work-service">Service <span style="color: red;">*</span></label>
+            <select id="work-service" required>
+                <option value="">-- Select Service --</option>
+            </select>
+        </div>
+        
+        <div id="time-input-container" style="display: none;">
+            <label for="work-minutes">Duration (minutes) <span style="color: red;">*</span></label>
+            <input type="number" id="work-minutes" min="0" max="300" placeholder="e.g., 20">
+            <small id="time-price-indicator" style="color: #7f8c8d;"></small>
+        </div>
+    </div>
+    
+    <div id="cost-preview" style="margin: 1rem 0; padding: 1rem; background: #ecf0f1; border-radius: 4px; display: none;">
+        <strong>Cost: £<span id="cost-amount">0.00</span></strong>
+    </div>
+    
+    <button class="button" id="btn-add-service">Add Service</button>
+    <button class="button secondary" id="btn-clear">Clear Form</button>
+</div>
+
+<!-- Added services list -->
+<div class="card" id="services-card" style="display: none;">
+    <h2>Services Added Today</h2>
+    
+    <table id="today-services">
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Horse</th>
+                <th>Service</th>
+                <th>Duration</th>
+                <th>Cost</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody id="today-services-body">
+        </tbody>
+    </table>
+    
+    <div style="margin-top: 1rem; padding: 1rem; background: #ecf0f1; border-radius: 4px;">
+        <strong>Daily Total: £<span id="daily-total">0.00</span></strong>
+    </div>
+</div>
+
+<!-- Work history -->
+<div class="card">
+    <h2>Work History (This Month)</h2>
+    
+    <div style="margin-bottom: 1rem;">
+        <label for="history-month-filter">Filter by Month:</label>
+        <select id="history-month-filter">
+            <option value="">-- Current Month --</option>
+        </select>
+    </div>
+    
+    <div id="work-history" class="loading">
+        <div class="spinner"></div>
+        Loading work history...
+    </div>
+</div>
+
+<script>
+    let owners = [];
+    let services = [];
+    let workEntries = [];
+    
+    // Set today's date as default
+    const today = new Date();
+    document.getElementById('work-date').valueAsDate = today;
+    
+    // Load initial data
+    async function loadInitialData() {
+        try {
+            // Load owners
+            const ownerResponse = await fetch('/api/owners');
+            owners = await ownerResponse.json();
+            
+            const ownerSelect = document.getElementById('work-owner');
+            owners.forEach(owner => {
+                const option = document.createElement('option');
+                option.value = owner.id;
+                option.textContent = owner.name;
+                ownerSelect.appendChild(option);
+            });
+            
+            // Load services
+            const serviceResponse = await fetch('/api/services');
+            services = await serviceResponse.json();
+            
+            const serviceSelect = document.getElementById('work-service');
+            services.forEach(service => {
+                const option = document.createElement('option');
+                option.value = service.id;
+                option.textContent = `${service.code} - ${service.name}`;
+                serviceSelect.appendChild(option);
+            });
+            
+            loadWorkHistory();
+        } catch (error) {
+            showAlert('Error loading data: ' + error.message, 'error');
+        }
+    }
+    
+    // Show alert
+    function showAlert(message, type) {
+        const container = document.getElementById('alert-container');
+        const alert = document.createElement('div');
+        alert.className = `alert alert-${type}`;
+        alert.textContent = message;
+        container.appendChild(alert);
+        
+        setTimeout(() => alert.remove(), 5000);
+    }
+    
+    // Handle owner selection
+    document.getElementById('work-owner').addEventListener('change', function() {
+        const selectedOwnerId = parseInt(this.value);
+        const selectedOwner = owners.find(o => o.id === selectedOwnerId);
+        
+        const horseSelect = document.getElementById('work-horse');
+        horseSelect.innerHTML = '<option value="">-- Select Horse --</option>';
+        
+        if (selectedOwner) {
+            selectedOwner.horses.forEach(horse => {
+                const option = document.createElement('option');
+                option.value = horse.id;
+                option.textContent = horse.name;
+                horseSelect.appendChild(option);
+            });
+        }
+    });
+    
+    // Handle service selection
+    document.getElementById('work-service').addEventListener('change', function() {
+        const selectedServiceId = parseInt(this.value);
+        const selectedService = services.find(s => s.id === selectedServiceId);
+        
+        const timeInputContainer = document.getElementById('time-input-container');
+        const minutesInput = document.getElementById('work-minutes');
+        
+        if (selectedService && selectedService.requires_time) {
+            timeInputContainer.style.display = 'block';
+            minutesInput.required = true;
+        } else {
+            timeInputContainer.style.display = 'none';
+            minutesInput.required = false;
+            minutesInput.value = '';
+        }
+        
+        updateCostPreview();
+    });
+    
+    // Handle minutes change (for Hold service)
+    document.getElementById('work-minutes').addEventListener('input', function() {
+        updateCostPreview();
+    });
+    
+    // Update cost preview
+    function updateCostPreview() {
+        const serviceSelect = document.getElementById('work-service');
+        const minutesInput = document.getElementById('work-minutes');
+        
+        const selectedServiceId = parseInt(serviceSelect.value);
+        const selectedService = services.find(s => s.id === selectedServiceId);
+        
+        const costPreview = document.getElementById('cost-preview');
+        const costAmount = document.getElementById('cost-amount');
+        
+        if (!selectedService) {
+            costPreview.style.display = 'none';
+            return;
+        }
+        
+        costPreview.style.display = 'block';
+        
+        if (selectedService.requires_time) {
+            const minutes = parseInt(minutesInput.value) || 0;
+            const cost = calculateHoldPrice(minutes);
+            costAmount.textContent = cost.toFixed(2);
+            
+            // Show indicator with Cassie's tiered pricing
+            const indicator = document.getElementById('time-price-indicator');
+            if (minutes <= 15) {
+                indicator.textContent = `Up to 15 mins: £5`;
+            } else if (minutes <= 30) {
+                indicator.textContent = `Up to 30 mins: £10`;
+            } else if (minutes <= 60) {
+                indicator.textContent = `Up to 1 hour: £15`;
+            } else {
+                const additionalMinutes = minutes - 60;
+                const additionalHours = Math.ceil(additionalMinutes / 60);
+                const hourText = additionalHours === 1 ? 'hour' : `${additionalHours} hours`;
+                indicator.textContent = `£15 + (${hourText} × £15) = £${cost.toFixed(2)}`;
+            }
+        } else {
+            costAmount.textContent = selectedService.base_price.toFixed(2);
+            document.getElementById('time-price-indicator').textContent = '';
+        }
+    }
+    
+    // Calculate Hold price
+    function calculateHoldPrice(minutes) {
+        // Cassie's Hold service tiered pricing
+        if (minutes <= 15) {
+            return 5.0;  // Up to 15 mins: £5
+        } else if (minutes <= 30) {
+            return 10.0;  // Up to 30 mins: £10
+        } else if (minutes <= 60) {
+            return 15.0;  // Up to 1 hour: £15
+        } else {
+            // Over 60 mins: £15 + (£15 per additional hour or part)
+            const additionalMinutes = minutes - 60;
+            const additionalHours = Math.ceil(additionalMinutes / 60);
+            return 15.0 + (15.0 * additionalHours);
+        }
+    }
+    
+    // Add service
+    document.getElementById('btn-add-service').addEventListener('click', async function() {
+        const date = document.getElementById('work-date').value;
+        const horseId = parseInt(document.getElementById('work-horse').value);
+        const serviceId = parseInt(document.getElementById('work-service').value);
+        const minutes = parseInt(document.getElementById('work-minutes').value) || 0;
+        
+        if (!date || !horseId || !serviceId) {
+            showAlert('Please fill in all required fields', 'error');
+            return;
+        }
+        
+        try {
+            const response = await fetch('/api/work-entries', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    date: date,
+                    horse_id: horseId,
+                    service_id: serviceId,
+                    minutes: minutes,
+                }),
+            });
+            
+            if (response.ok) {
+                const entry = await response.json();
+                workEntries.push(entry);
+                
+                showAlert(`Added ${entry.service_name} for ${entry.horse_name} on ${entry.date}`, 'success');
+                
+                // Reset form
+                document.getElementById('work-service').value = '';
+                document.getElementById('work-minutes').value = '';
+                document.getElementById('cost-preview').style.display = 'none';
+                
+                // Update UI
+                updateServicesDisplay();
+                loadWorkHistory();
+            } else {
+                const error = await response.json();
+                showAlert('Error: ' + error.message, 'error');
+            }
+        } catch (error) {
+            showAlert('Error adding service: ' + error.message, 'error');
+        }
+    });
+    
+    // Clear form
+    document.getElementById('btn-clear').addEventListener('click', function() {
+        document.getElementById('work-service').value = '';
+        document.getElementById('work-horse').value = '';
+        document.getElementById('work-owner').value = '';
+        document.getElementById('work-minutes').value = '';
+        document.getElementById('cost-preview').style.display = 'none';
+    });
+    
+    // Update services display
+    function updateServicesDisplay() {
+        const servicesCard = document.getElementById('services-card');
+        const body = document.getElementById('today-services-body');
+        const dailyTotal = document.getElementById('daily-total');
+        
+        const todayEntries = workEntries.filter(e => e.date === document.getElementById('work-date').value);
+        
+        if (todayEntries.length === 0) {
+            servicesCard.style.display = 'none';
+            return;
+        }
+        
+        servicesCard.style.display = 'block';
+        body.innerHTML = '';
+        
+        let total = 0;
+        todayEntries.forEach((entry, idx) => {
+            const row = document.createElement('tr');
+            const durationStr = entry.minutes ? `${entry.minutes} min` : '-';
+            
+            row.innerHTML = `
+                <td>${entry.date}</td>
+                <td>${entry.horse_name}</td>
+                <td>${entry.service_name}</td>
+                <td>${durationStr}</td>
+                <td>£${entry.cost.toFixed(2)}</td>
+                <td><button class="button danger" onclick="deleteEntry(${entry.id})">Delete</button></td>
+            `;
+            
+            body.appendChild(row);
+            total += entry.cost;
+        });
+        
+        dailyTotal.textContent = total.toFixed(2);
+    }
+    
+    // Delete entry
+    async function deleteEntry(entryId) {
+        if (!confirm('Are you sure you want to delete this entry?')) return;
+        
+        try {
+            const response = await fetch(`/api/work-entries/${entryId}`, {
+                method: 'DELETE',
+            });
+            
+            if (response.ok) {
+                workEntries = workEntries.filter(e => e.id !== entryId);
+                updateServicesDisplay();
+                loadWorkHistory();
+                showAlert('Entry deleted', 'success');
+            }
+        } catch (error) {
+            showAlert('Error deleting entry: ' + error.message, 'error');
+        }
+    }
+    
+    // Load work history
+    async function loadWorkHistory() {
+        try {
+            const today = new Date();
+            const month_start = new Date(today.getFullYear(), today.getMonth(), 1);
+            const month_end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+            
+            const start_str = month_start.toISOString().split('T')[0];
+            const end_str = month_end.toISOString().split('T')[0];
+            
+            const response = await fetch(`/api/work-entries?start=${start_str}&end=${end_str}`);
+            const entries = await response.json();
+            
+            workEntries = entries;
+            
+            // Group by date and owner
+            const grouped = {};
+            entries.forEach(entry => {
+                if (!grouped[entry.date]) {
+                    grouped[entry.date] = {};
+                }
+                if (!grouped[entry.date][entry.owner_name]) {
+                    grouped[entry.date][entry.owner_name] = [];
+                }
+                grouped[entry.date][entry.owner_name].push(entry);
+            });
+            
+            // Build history table
+            const historyEl = document.getElementById('work-history');
+            let html = '<table><thead><tr><th>Date</th><th>Owner</th><th>Horse</th><th>Service</th><th>Cost</th></tr></thead><tbody>';
+            
+            Object.keys(grouped).sort().reverse().forEach(date => {
+                Object.keys(grouped[date]).sort().forEach(owner => {
+                    grouped[date][owner].forEach((entry, idx) => {
+                        html += `<tr>
+                            <td>${idx === 0 ? date : ''}</td>
+                            <td>${idx === 0 ? owner : ''}</td>
+                            <td>${entry.horse_name}</td>
+                            <td>${entry.service_name}</td>
+                            <td>£${entry.cost.toFixed(2)}</td>
+                        </tr>`;
+                    });
+                });
+            });
+            
+            html += '</tbody></table>';
+            historyEl.innerHTML = html || '<p>No work entries yet this month.</p>';
+        } catch (error) {
+            document.getElementById('work-history').innerHTML = '<p class="alert alert-error">Error loading history.</p>';
+        }
+    }
+    
+    // Initialize
+    loadInitialData();
+</script>
+{% endblock %}

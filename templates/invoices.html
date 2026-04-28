@@ -1,0 +1,263 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="card">
+    <h2>Generate Invoices</h2>
+    <p>Select a month to generate and download invoices for all owners.</p>
+    
+    <div id="alert-container"></div>
+    
+    <div class="grid">
+        <div>
+            <label for="invoice-month">Month <span style="color: red;">*</span></label>
+            <select id="invoice-month" required>
+                <option value="">-- Select Month --</option>
+            </select>
+        </div>
+        
+        <div>
+            <label for="invoice-year">Year <span style="color: red;">*</span></label>
+            <select id="invoice-year" required>
+                <option value="">-- Select Year --</option>
+            </select>
+        </div>
+    </div>
+    
+    <div style="margin: 1rem 0; padding: 1rem; background: #ecf0f1; border-radius: 4px;">
+        <strong>Preview: </strong><span id="preview-month">January 2026</span>
+        <p><small>Work entries for this month will be included in the invoices.</small></p>
+    </div>
+    
+    <button class="button success" id="btn-generate-invoices">Generate All Invoices</button>
+    <button class="button secondary" id="btn-preview">Preview Before Generating</button>
+</div>
+
+<!-- Invoice preview -->
+<div class="card" id="preview-card" style="display: none;">
+    <h2>Invoice Preview</h2>
+    <div id="preview-content"></div>
+</div>
+
+<!-- Invoice history -->
+<div class="card">
+    <h2>Invoice History</h2>
+    
+    <div id="invoice-history" class="loading">
+        <div class="spinner"></div>
+        Loading invoice history...
+    </div>
+</div>
+
+<script>
+    // Months and years
+    const monthNames = [
+        'January', 'February', 'March', 'April', 'May', 'June',
+        'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    
+    // Populate months
+    const monthSelect = document.getElementById('invoice-month');
+    monthNames.forEach((month, idx) => {
+        const option = document.createElement('option');
+        option.value = idx;
+        option.textContent = month;
+        monthSelect.appendChild(option);
+    });
+    
+    // Set current month
+    const today = new Date();
+    monthSelect.value = today.getMonth();
+    
+    // Populate years
+    const yearSelect = document.getElementById('invoice-year');
+    for (let year = 2025; year <= 2027; year++) {
+        const option = document.createElement('option');
+        option.value = year;
+        option.textContent = year;
+        yearSelect.appendChild(option);
+    }
+    yearSelect.value = today.getFullYear();
+    
+    // Update preview
+    function updatePreview() {
+        const month = monthSelect.options[monthSelect.selectedIndex].text;
+        const year = yearSelect.value;
+        document.getElementById('preview-month').textContent = `${month} ${year}`;
+    }
+    
+    monthSelect.addEventListener('change', updatePreview);
+    yearSelect.addEventListener('change', updatePreview);
+    
+    // Show alert
+    function showAlert(message, type) {
+        const container = document.getElementById('alert-container');
+        const alert = document.createElement('div');
+        alert.className = `alert alert-${type}`;
+        alert.textContent = message;
+        container.appendChild(alert);
+        
+        setTimeout(() => alert.remove(), 5000);
+    }
+    
+    // Generate invoices
+    document.getElementById('btn-generate-invoices').addEventListener('click', async function() {
+        const month = monthSelect.value;
+        const year = yearSelect.value;
+        
+        if (!month || !year) {
+            showAlert('Please select a month and year', 'error');
+            return;
+        }
+        
+        this.disabled = true;
+        this.textContent = 'Generating...';
+        
+        try {
+            // For now, just show a message
+            // In the real implementation, this would call a backend API to generate PDFs
+            showAlert('PDF generation coming soon! (Requires integration with reporting library)', 'info');
+        } catch (error) {
+            showAlert('Error generating invoices: ' + error.message, 'error');
+        } finally {
+            this.disabled = false;
+            this.textContent = 'Generate All Invoices';
+        }
+    });
+    
+    // Preview
+    document.getElementById('btn-preview').addEventListener('click', async function() {
+        const month = monthSelect.value;
+        const year = yearSelect.value;
+        
+        if (!month || !year) {
+            showAlert('Please select a month and year', 'error');
+            return;
+        }
+        
+        try {
+            // Get work entries for this month
+            const monthNum = parseInt(month);
+            const yearNum = parseInt(year);
+            
+            const start_date = new Date(yearNum, monthNum, 1);
+            const end_date = new Date(yearNum, monthNum + 1, 0);
+            
+            const start_str = start_date.toISOString().split('T')[0];
+            const end_str = end_date.toISOString().split('T')[0];
+            
+            const response = await fetch(`/api/work-entries?start=${start_str}&end=${end_str}`);
+            const entries = await response.json();
+            
+            if (entries.length === 0) {
+                showAlert('No work entries for this month', 'warning');
+                return;
+            }
+            
+            // Group by owner
+            const byOwner = {};
+            entries.forEach(entry => {
+                if (!byOwner[entry.owner_name]) {
+                    byOwner[entry.owner_name] = [];
+                }
+                byOwner[entry.owner_name].push(entry);
+            });
+            
+            // Build preview
+            const previewCard = document.getElementById('preview-card');
+            const previewContent = document.getElementById('preview-content');
+            
+            let html = '';
+            Object.keys(byOwner).sort().forEach(owner => {
+                const ownerEntries = byOwner[owner];
+                const total = ownerEntries.reduce((sum, e) => sum + e.cost, 0);
+                const horses = [...new Set(ownerEntries.map(e => e.horse_name))];
+                
+                html += `
+                    <div style="margin-bottom: 2rem; padding: 1rem; background: #f9f9f9; border: 1px solid #ddd; border-radius: 4px;">
+                        <h3>${owner}</h3>
+                        <p><small>Horses: ${horses.join(', ')}</small></p>
+                        <table style="width: 100%; margin: 1rem 0; font-size: 0.9rem;">
+                            <thead>
+                                <tr style="background: #34495e; color: white;">
+                                    <th style="padding: 0.5rem; text-align: left;">Date</th>
+                                    <th style="padding: 0.5rem; text-align: left;">Horse</th>
+                                    <th style="padding: 0.5rem; text-align: left;">Service</th>
+                                    <th style="padding: 0.5rem; text-align: right;">Cost</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                `;
+                
+                ownerEntries.sort((a, b) => new Date(a.date) - new Date(b.date)).forEach(entry => {
+                    const dateObj = new Date(entry.date);
+                    const dateStr = dateObj.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+                    html += `
+                        <tr>
+                            <td style="padding: 0.5rem;">${dateStr}</td>
+                            <td style="padding: 0.5rem;">${entry.horse_name}</td>
+                            <td style="padding: 0.5rem;">${entry.service_name}</td>
+                            <td style="padding: 0.5rem; text-align: right;">£${entry.cost.toFixed(2)}</td>
+                        </tr>
+                    `;
+                });
+                
+                html += `
+                            </tbody>
+                        </table>
+                        <div style="text-align: right; padding-top: 0.5rem; border-top: 2px solid #34495e;">
+                            <strong>Total: £${total.toFixed(2)}</strong>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            previewContent.innerHTML = html;
+            previewCard.style.display = 'block';
+            
+            // Scroll to preview
+            previewCard.scrollIntoView({ behavior: 'smooth' });
+        } catch (error) {
+            showAlert('Error loading preview: ' + error.message, 'error');
+        }
+    });
+    
+    // Load invoice history
+    async function loadInvoiceHistory() {
+        try {
+            const response = await fetch('/api/invoices');
+            const invoices = await response.json();
+            
+            const historyEl = document.getElementById('invoice-history');
+            
+            if (invoices.length === 0) {
+                historyEl.innerHTML = '<p>No invoices generated yet.</p>';
+                return;
+            }
+            
+            let html = '<table><thead><tr><th>Owner</th><th>Month</th><th>Created</th><th>Action</th></tr></thead><tbody>';
+            invoices.forEach(invoice => {
+                const dateObj = new Date(invoice.created_at);
+                const dateStr = dateObj.toLocaleDateString('en-GB');
+                
+                html += `
+                    <tr>
+                        <td>${invoice.owner_name}</td>
+                        <td>${invoice.month} ${invoice.year}</td>
+                        <td>${dateStr}</td>
+                        <td><a href="/api/invoices/${invoice.id}/pdf" class="button" download>Download PDF</a></td>
+                    </tr>
+                `;
+            });
+            html += '</tbody></table>';
+            
+            historyEl.innerHTML = html;
+        } catch (error) {
+            document.getElementById('invoice-history').innerHTML = '<p class="alert alert-error">Error loading history.</p>';
+        }
+    }
+    
+    // Initialize
+    updatePreview();
+    loadInvoiceHistory();
+</script>
+{% endblock %}

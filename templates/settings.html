@@ -1,0 +1,444 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="card">
+    <h2>Settings & Management</h2>
+    <p>Manage owners, horses, and service pricing. All changes are saved immediately.</p>
+    <div id="alert-container"></div>
+</div>
+
+<!-- OWNERS MANAGEMENT -->
+<div class="card">
+    <h2>Owners</h2>
+    
+    <div class="form-group">
+        <input type="text" id="new-owner-name" placeholder="Enter owner name" style="width: 70%;">
+        <button class="button" id="btn-add-owner" style="width: 28%; margin-left: 2%;">Add Owner</button>
+    </div>
+    
+    <div id="owners-list" class="loading">
+        <div class="spinner"></div>
+        Loading owners...
+    </div>
+</div>
+
+<!-- HORSES MANAGEMENT -->
+<div class="card">
+    <h2>Horses</h2>
+    
+    <div class="grid" style="margin-bottom: 1.5rem;">
+        <div>
+            <label for="new-horse-owner">Owner</label>
+            <select id="new-horse-owner" required></select>
+        </div>
+        <div>
+            <label for="new-horse-name">Horse Name</label>
+            <input type="text" id="new-horse-name" placeholder="e.g., Ronnie" required>
+        </div>
+    </div>
+    <button class="button" id="btn-add-horse" style="width: 100%;">Add Horse</button>
+    
+    <div id="horses-list" class="loading" style="margin-top: 1.5rem;">
+        <div class="spinner"></div>
+        Loading horses...
+    </div>
+</div>
+
+<!-- SERVICES MANAGEMENT -->
+<div class="card">
+    <h2>Services & Pricing</h2>
+    
+    <div style="margin-bottom: 1.5rem;">
+        <h3>Add New Service</h3>
+        <div class="grid">
+            <div>
+                <label for="new-service-code">Code</label>
+                <input type="text" id="new-service-code" placeholder="e.g., GR" maxlength="5" required>
+            </div>
+            <div>
+                <label for="new-service-name">Service Name</label>
+                <input type="text" id="new-service-name" placeholder="e.g., Grooming" required>
+            </div>
+            <div>
+                <label for="new-service-price">Price (£)</label>
+                <input type="number" id="new-service-price" step="0.01" min="0" placeholder="10.00" required>
+            </div>
+        </div>
+        <div class="form-group">
+            <label>
+                <input type="checkbox" id="new-service-time"> Time-based (like Hold)?
+            </label>
+            <small>Check this if price depends on duration (minutes)</small>
+        </div>
+        <button class="button" id="btn-add-service" style="width: 100%;">Add Service</button>
+    </div>
+    
+    <h3>Existing Services</h3>
+    <div id="services-list" class="loading">
+        <div class="spinner"></div>
+        Loading services...
+    </div>
+</div>
+
+<script>
+    let owners = [];
+    let horses = [];
+    let services = [];
+    
+    function showAlert(message, type = 'success') {
+        const container = document.getElementById('alert-container');
+        const alert = document.createElement('div');
+        alert.className = `alert alert-${type}`;
+        alert.textContent = message;
+        container.appendChild(alert);
+        setTimeout(() => alert.remove(), 5000);
+    }
+    
+    // ========== OWNERS ==========
+    
+    async function loadOwners() {
+        try {
+            const response = await fetch('/api/owners');
+            owners = await response.json();
+            renderOwners();
+            
+            // Update horse owner dropdown
+            const ownerSelect = document.getElementById('new-horse-owner');
+            ownerSelect.innerHTML = '<option value="">-- Select Owner --</option>';
+            owners.forEach(owner => {
+                const option = document.createElement('option');
+                option.value = owner.id;
+                option.textContent = owner.name;
+                ownerSelect.appendChild(option);
+            });
+        } catch (error) {
+            document.getElementById('owners-list').innerHTML = `<p class="alert alert-error">Error loading owners</p>`;
+        }
+    }
+    
+    function renderOwners() {
+        const container = document.getElementById('owners-list');
+        if (owners.length === 0) {
+            container.innerHTML = '<p>No owners yet.</p>';
+            return;
+        }
+        
+        let html = '<table><thead><tr><th>Name</th><th>Horses</th><th>Actions</th></tr></thead><tbody>';
+        owners.forEach(owner => {
+            const horseCount = owner.horses.length;
+            html += `
+                <tr>
+                    <td>
+                        <input type="text" value="${owner.name}" id="owner-name-${owner.id}" style="width: 100%;">
+                    </td>
+                    <td>${horseCount}</td>
+                    <td>
+                        <button class="button" onclick="saveOwner(${owner.id}, document.getElementById('owner-name-${owner.id}').value)">Save</button>
+                        <button class="button danger" onclick="deleteOwner(${owner.id})">Delete</button>
+                    </td>
+                </tr>
+            `;
+        });
+        html += '</tbody></table>';
+        container.innerHTML = html;
+    }
+    
+    async function saveOwner(ownerId, newName) {
+        try {
+            const response = await fetch(`/api/owners/${ownerId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: newName }),
+            });
+            
+            if (response.ok) {
+                showAlert('Owner updated');
+                loadOwners();
+            } else {
+                const error = await response.json();
+                showAlert(error.error, 'error');
+            }
+        } catch (error) {
+            showAlert('Error: ' + error.message, 'error');
+        }
+    }
+    
+    async function deleteOwner(ownerId) {
+        if (!confirm('Delete this owner? (Cannot have work entries)')) return;
+        
+        try {
+            const response = await fetch(`/api/owners/${ownerId}`, { method: 'DELETE' });
+            
+            if (response.ok) {
+                showAlert('Owner deleted');
+                loadOwners();
+                loadHorses();
+            } else {
+                const error = await response.json();
+                showAlert(error.error, 'error');
+            }
+        } catch (error) {
+            showAlert('Error: ' + error.message, 'error');
+        }
+    }
+    
+    document.getElementById('btn-add-owner').addEventListener('click', async function() {
+        const name = document.getElementById('new-owner-name').value.trim();
+        if (!name) {
+            showAlert('Enter owner name', 'error');
+            return;
+        }
+        
+        try {
+            const response = await fetch('/api/owners', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name }),
+            });
+            
+            if (response.ok) {
+                showAlert('Owner added');
+                document.getElementById('new-owner-name').value = '';
+                loadOwners();
+            } else {
+                const error = await response.json();
+                showAlert(error.error, 'error');
+            }
+        } catch (error) {
+            showAlert('Error: ' + error.message, 'error');
+        }
+    });
+    
+    // ========== HORSES ==========
+    
+    async function loadHorses() {
+        try {
+            const response = await fetch('/api/owners');
+            const ownerData = await response.json();
+            horses = [];
+            ownerData.forEach(owner => {
+                owner.horses.forEach(horse => {
+                    horses.push({ ...horse, owner_name: owner.name });
+                });
+            });
+            renderHorses();
+        } catch (error) {
+            document.getElementById('horses-list').innerHTML = `<p class="alert alert-error">Error loading horses</p>`;
+        }
+    }
+    
+    function renderHorses() {
+        const container = document.getElementById('horses-list');
+        if (horses.length === 0) {
+            container.innerHTML = '<p>No horses yet.</p>';
+            return;
+        }
+        
+        let html = '<table><thead><tr><th>Name</th><th>Owner</th><th>Actions</th></tr></thead><tbody>';
+        horses.forEach(horse => {
+            html += `
+                <tr>
+                    <td>${horse.name}</td>
+                    <td>
+                        <select id="owner-for-horse-${horse.id}" style="width: 100%;">
+                            <option value="">-- Select --</option>
+                        </select>
+                    </td>
+                    <td>
+                        <button class="button" onclick="updateHorseOwner(${horse.id}, document.getElementById('owner-for-horse-${horse.id}').value)">Change Owner</button>
+                        <button class="button danger" onclick="deleteHorse(${horse.id})">Delete</button>
+                    </td>
+                </tr>
+            `;
+        });
+        html += '</tbody></table>';
+        container.innerHTML = html;
+        
+        // Populate owner dropdowns
+        horses.forEach(horse => {
+            const select = document.getElementById(`owner-for-horse-${horse.id}`);
+            owners.forEach(owner => {
+                const option = document.createElement('option');
+                option.value = owner.id;
+                option.textContent = owner.name;
+                if (owner.id === horse.owner_id) option.selected = true;
+                select.appendChild(option);
+            });
+        });
+    }
+    
+    async function updateHorseOwner(horseId, newOwnerId) {
+        if (!newOwnerId) {
+            showAlert('Select an owner', 'error');
+            return;
+        }
+        
+        try {
+            const response = await fetch(`/api/horses/${horseId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ owner_id: parseInt(newOwnerId) }),
+            });
+            
+            if (response.ok) {
+                showAlert('Horse owner updated');
+                loadHorses();
+            } else {
+                const error = await response.json();
+                showAlert(error.error, 'error');
+            }
+        } catch (error) {
+            showAlert('Error: ' + error.message, 'error');
+        }
+    }
+    
+    async function deleteHorse(horseId) {
+        if (!confirm('Delete this horse? (Cannot have work entries)')) return;
+        
+        try {
+            const response = await fetch(`/api/horses/${horseId}`, { method: 'DELETE' });
+            
+            if (response.ok) {
+                showAlert('Horse deleted');
+                loadHorses();
+            } else {
+                const error = await response.json();
+                showAlert(error.error, 'error');
+            }
+        } catch (error) {
+            showAlert('Error: ' + error.message, 'error');
+        }
+    }
+    
+    document.getElementById('btn-add-horse').addEventListener('click', async function() {
+        const name = document.getElementById('new-horse-name').value.trim();
+        const owner_id = parseInt(document.getElementById('new-horse-owner').value);
+        
+        if (!name || !owner_id) {
+            showAlert('Enter horse name and select owner', 'error');
+            return;
+        }
+        
+        try {
+            const response = await fetch('/api/horses', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, owner_id }),
+            });
+            
+            if (response.ok) {
+                showAlert('Horse added');
+                document.getElementById('new-horse-name').value = '';
+                document.getElementById('new-horse-owner').value = '';
+                loadHorses();
+            } else {
+                const error = await response.json();
+                showAlert(error.error, 'error');
+            }
+        } catch (error) {
+            showAlert('Error: ' + error.message, 'error');
+        }
+    });
+    
+    // ========== SERVICES ==========
+    
+    async function loadServices() {
+        try {
+            const response = await fetch('/api/services');
+            services = await response.json();
+            renderServices();
+        } catch (error) {
+            document.getElementById('services-list').innerHTML = `<p class="alert alert-error">Error loading services</p>`;
+        }
+    }
+    
+    function renderServices() {
+        const container = document.getElementById('services-list');
+        if (services.length === 0) {
+            container.innerHTML = '<p>No services yet.</p>';
+            return;
+        }
+        
+        let html = '<table><thead><tr><th>Code</th><th>Name</th><th>Price</th><th>Type</th><th>Actions</th></tr></thead><tbody>';
+        services.forEach(service => {
+            const type = service.requires_time ? 'Time-based' : 'Fixed';
+            html += `
+                <tr>
+                    <td><strong>${service.code}</strong></td>
+                    <td>
+                        <input type="text" value="${service.name}" id="service-name-${service.id}" style="width: 100%;">
+                    </td>
+                    <td>
+                        £<input type="number" value="${service.base_price}" id="service-price-${service.id}" step="0.01" min="0" style="width: 80px;">
+                    </td>
+                    <td>${type}</td>
+                    <td>
+                        <button class="button" onclick="saveService(${service.id}, document.getElementById('service-name-${service.id}').value, parseFloat(document.getElementById('service-price-${service.id}').value))">Save</button>
+                    </td>
+                </tr>
+            `;
+        });
+        html += '</tbody></table>';
+        container.innerHTML = html;
+    }
+    
+    async function saveService(serviceId, newName, newPrice) {
+        try {
+            const response = await fetch(`/api/services/${serviceId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: newName, base_price: newPrice }),
+            });
+            
+            if (response.ok) {
+                showAlert('Service updated');
+                loadServices();
+            } else {
+                const error = await response.json();
+                showAlert(error.error, 'error');
+            }
+        } catch (error) {
+            showAlert('Error: ' + error.message, 'error');
+        }
+    }
+    
+    document.getElementById('btn-add-service').addEventListener('click', async function() {
+        const code = document.getElementById('new-service-code').value.trim().toUpperCase();
+        const name = document.getElementById('new-service-name').value.trim();
+        const base_price = parseFloat(document.getElementById('new-service-price').value);
+        const requires_time = document.getElementById('new-service-time').checked;
+        
+        if (!code || !name || isNaN(base_price)) {
+            showAlert('Fill in all fields', 'error');
+            return;
+        }
+        
+        try {
+            const response = await fetch('/api/services', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ code, name, base_price, requires_time }),
+            });
+            
+            if (response.ok) {
+                showAlert('Service added');
+                document.getElementById('new-service-code').value = '';
+                document.getElementById('new-service-name').value = '';
+                document.getElementById('new-service-price').value = '';
+                document.getElementById('new-service-time').checked = false;
+                loadServices();
+            } else {
+                const error = await response.json();
+                showAlert(error.error, 'error');
+            }
+        } catch (error) {
+            showAlert('Error: ' + error.message, 'error');
+        }
+    });
+    
+    // Initialize
+    loadOwners();
+    loadHorses();
+    loadServices();
+</script>
+{% endblock %}
