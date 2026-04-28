@@ -129,7 +129,7 @@
                 showAlert(`Generated ${result.generated} invoice${result.generated !== 1 ? 's' : ''}`, 'success');
                 
                 // Reload invoices list
-                loadInvoices();
+                loadInvoiceHistory();
                 
                 // If any errors, show them
                 if (result.errors && result.errors.length > 0) {
