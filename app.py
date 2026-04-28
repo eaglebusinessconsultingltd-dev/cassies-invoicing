@@ -866,12 +866,13 @@ def generate_invoice_pdf(owner_id, month, year, work_entries):
     header_table.setStyle(TableStyle([
         ('ALIGN', (0, 0), (0, 0), 'LEFT'),
         ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
-        ('FONTNAME', (0, 0), (0, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (0, 0), 14),
-        ('FONTSIZE', (1, 0), (1, 0), 11),
-        ('GRID', (0, 0), (-1, -1), 0, colors.white),  # No grid lines
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 14),
+        ('GRID', (0, 0), (-1, -1), 0, colors.whitesmoke),  # No visible grid lines
         ('TOPPADDING', (0, 0), (-1, -1), 0),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
     ]))
     elements.append(header_table)
     elements.append(Spacer(1, 0.3*cm))
