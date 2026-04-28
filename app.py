@@ -850,7 +850,7 @@ def generate_invoice_pdf(owner_id, month, year, work_entries):
             if horse in by_date[date_key]:
                 # Show service + cost for each entry on this date for this horse
                 services_text = '\n'.join([
-                    f'{entry.service.name} £{entry.calculate_cost():.2f}'
+                    f'{entry.service.name}' + (f' ({entry.minutes} min)' if entry.service.code == "H" else '') + f' £{entry.calculate_cost():.2f}'
                     for entry in sorted(by_date[date_key][horse], key=lambda x: x.id)
                 ])
                 row.append(services_text)
