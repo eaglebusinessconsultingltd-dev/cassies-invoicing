@@ -305,8 +305,13 @@ def add_work_entry():
     return jsonify({
         'id': entry.id,
         'date': entry.date.isoformat(),
+        'horse_id': entry.horse_id,
         'horse_name': entry.horse.name,
+        'owner_id': entry.horse.owner_id,
+        'owner_name': entry.horse.owner.name,
+        'service_code': entry.service.code,
         'service_name': entry.service.name,
+        'minutes': entry.minutes,
         'cost': entry.calculate_cost(),
     }), 201
 
