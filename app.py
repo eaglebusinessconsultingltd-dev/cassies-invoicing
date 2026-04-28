@@ -337,11 +337,66 @@ def get_invoices():
     } for invoice in invoices])
 
 
+@app.route('/api/invoices/generate-owner/<int:owner_id>', methods=['POST'])
+def generate_invoice_for_owner(owner_id):
+    """Generate invoice for a specific owner for a given month."""
+    data = request.json
+    month = int(data.get('month', 0))
+    year = int(data.get('year', 0))
+    
+    if not month or not year:
+        return jsonify({'error': 'Month and year required'}), 400
+    
+    owner = Owner.query.get_or_404(owner_id)
+    
+    try:
+        # Get work entries for this owner in this month
+        start_date = date(year, month, 1)
+        if month == 12:
+            end_date = date(year + 1, 1, 1) - timedelta(days=1)
+        else:
+            end_date = date(year, month + 1, 1) - timedelta(days=1)
+        
+        work_entries = WorkEntry.query.filter(
+            WorkEntry.date >= start_date,
+            WorkEntry.date <= end_date,
+            WorkEntry.horse.has(Horse.owner_id == owner_id)
+        ).all()
+        
+        if not work_entries:
+            return jsonify({
+                'success': False,
+                'error': f'{owner.name} has no work entries for this month'
+            }), 400
+        
+        # Generate PDF
+        pdf_buffer = generate_invoice_pdf(owner_id, month, year, work_entries)
+        
+        # Save invoice record
+        invoice = Invoice(
+            owner_id=owner_id,
+            month=month,
+            year=year,
+            pdf_data=pdf_buffer.getvalue() if pdf_buffer else None
+        )
+        db.session.add(invoice)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'generated': 1,
+            'errors': []
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/api/invoices/generate', methods=['POST'])
 def generate_invoices():
     """Generate invoices for all owners for a given month."""
     data = request.json
-    month = int(data.get('month'))
+    month = int(data.get('month')) + 1  # Convert 0-indexed to 1-indexed (0=Jan, 11=Dec)
     year = int(data.get('year'))
     
     if not month or not year:
@@ -389,6 +444,66 @@ def generate_invoices():
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': f'Database error: {str(e)}'}), 500
+    
+    return jsonify({
+        'success': True,
+        'generated': generated_count,
+        'errors': errors
+    })
+
+
+@app.route('/api/invoices/generate-owner/<int:owner_id>', methods=['POST'])
+def generate_owner_invoice(owner_id):
+    """Generate invoice for a specific owner for a given month."""
+    data = request.json
+    month = int(data.get('month')) + 1  # Convert 0-indexed to 1-indexed
+    year = int(data.get('year'))
+    
+    if not month or not year:
+        return jsonify({'error': 'Month and year required'}), 400
+    
+    owner = Owner.query.get_or_404(owner_id)
+    generated_count = 0
+    errors = []
+    
+    try:
+        # Get work entries for this owner in this month
+        start_date = date(year, month, 1)
+        if month == 12:
+            end_date = date(year + 1, 1, 1) - timedelta(days=1)
+        else:
+            end_date = date(year, month + 1, 1) - timedelta(days=1)
+        
+        work_entries = WorkEntry.query.filter(
+            WorkEntry.date >= start_date,
+            WorkEntry.date <= end_date,
+            WorkEntry.horse.has(Horse.owner_id == owner.id)
+        ).all()
+        
+        # Only generate if there are work entries
+        if work_entries:
+            # Generate PDF
+            pdf_buffer = generate_invoice_pdf(owner.id, month, year, work_entries)
+            
+            # Save invoice record
+            invoice = Invoice(
+                owner_id=owner.id,
+                month=month,
+                year=year,
+                pdf_data=pdf_buffer.getvalue() if pdf_buffer else None
+            )
+            db.session.add(invoice)
+            db.session.commit()
+            generated_count = 1
+        else:
+            return jsonify({
+                'success': False,
+                'error': f'No work entries found for {owner.name} in {month}/{year}'
+            }), 400
+    
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
     
     return jsonify({
         'success': True,
