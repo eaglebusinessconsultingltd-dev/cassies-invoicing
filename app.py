@@ -881,8 +881,9 @@ def generate_invoice_pdf(owner_id, month, year, work_entries):
     )
     
     # Use a table but with ZERO border width
+    # Adjust column widths: first column narrower for INVOICE, second wider for company name
     header_data = [['INVOICE', 'Cassie White Equestrian Services']]
-    header_table = Table(header_data, colWidths=[10*cm, 10*cm])
+    header_table = Table(header_data, colWidths=[1.8*cm, 18.2*cm])
     header_table.setStyle(TableStyle([
         ('ALIGN', (0, 0), (0, 0), 'LEFT'),
         ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
