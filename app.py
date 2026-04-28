@@ -921,7 +921,18 @@ def generate_invoice_pdf(owner_id, month, year, work_entries):
             for horse in horses:
                 if service_idx < len(entries_by_horse[horse]):
                     entry = entries_by_horse[horse][service_idx]
-                    service_name = entry.service.name + (f' ({entry.minutes} min)' if entry.service.code == "H" else '')
+                    
+                    # Shorten service names
+                    service_name = entry.service.name
+                    if entry.service.code == "H":
+                        service_name = f'Hold ({entry.minutes} min)'
+                    elif service_name == "Holding (farrier/vet/other)":
+                        service_name = f'Hold ({entry.minutes} min)'
+                    elif service_name == "Field Service (Feed, Rug, Muzzle, Fly spray)":
+                        service_name = "Field Service"
+                    elif service_name == "Skip out only":
+                        service_name = "Skip Out"
+                    
                     price = f'£{entry.calculate_cost():.2f}'
                     row.append(service_name)
                     row.append(price)
@@ -971,7 +982,7 @@ def generate_invoice_pdf(owner_id, month, year, work_entries):
         # Header row 2 (Service | Price) - lighter background
         ('BACKGROUND', (0, 1), (-1, 1), colors.HexColor('#f0f0f0')),
         ('FONTNAME', (0, 1), (-1, 1), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 1), (-1, 1), 8),
+        ('FONTSIZE', (0, 1), (-1, 1), 7),
         ('ALIGN', (0, 1), (-1, 1), 'CENTER'),
         # Data rows
         ('ALIGN', (0, 2), (0, -2), 'LEFT'),   # Date column: left
@@ -984,11 +995,15 @@ def generate_invoice_pdf(owner_id, month, year, work_entries):
         ('ALIGN', (1, -1), (-1, -1), 'RIGHT'),
         # Grid
         ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-        # Padding
-        ('TOPPADDING', (0, 2), (-1, -1), 6),
-        ('BOTTOMPADDING', (0, 2), (-1, -1), 6),
-        ('FONTSIZE', (0, 2), (-1, -2), 8),
-        ('FONTSIZE', (0, -1), (-1, -1), 9),
+        # Padding - reduced for tighter fit
+        ('TOPPADDING', (0, 2), (-1, -1), 3),
+        ('BOTTOMPADDING', (0, 2), (-1, -1), 3),
+        ('TOPPADDING', (0, 0), (-1, 1), 5),
+        ('BOTTOMPADDING', (0, 0), (-1, 1), 5),
+        # Font sizes - reduced
+        ('FONTSIZE', (0, 0), (-1, 0), 8),  # Horse name headers
+        ('FONTSIZE', (0, 2), (-1, -2), 7),  # Data rows
+        ('FONTSIZE', (0, -1), (-1, -1), 7),  # Subtotal row
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
     ])
     
