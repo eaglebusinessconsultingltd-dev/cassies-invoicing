@@ -376,6 +376,11 @@
             const response = await fetch(`/api/work-entries?start=${start_str}&end=${end_str}`);
             const entries = await response.json();
             
+            // DEBUG: Log first entry to see what we're getting
+            if (entries.length > 0) {
+                console.log('DEBUG - First entry:', entries[0]);
+            }
+            
             workEntries = entries;
             
             // Group by date and owner
@@ -414,6 +419,7 @@
             html += '</tbody></table>';
             historyEl.innerHTML = html || '<p>No work entries yet this month.</p>';
         } catch (error) {
+            console.error('Error in loadWorkHistory:', error);
             document.getElementById('work-history').innerHTML = '<p class="alert alert-error">Error loading history.</p>';
         }
     }
