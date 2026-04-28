@@ -781,7 +781,7 @@ def generate_invoice_pdf(owner_id, month, year, work_entries):
     
     Args:
         owner_id: Owner ID
-        month: Month name (e.g., "May")
+        month: Month number (1-12)
         year: Year (e.g., 2026)
         work_entries: List of work entries for this month
     
@@ -789,6 +789,11 @@ def generate_invoice_pdf(owner_id, month, year, work_entries):
         BytesIO object with PDF data
     """
     owner = Owner.query.get(owner_id)
+    
+    # Convert month number to month name
+    month_names = ['', 'January', 'February', 'March', 'April', 'May', 'June',
+                   'July', 'August', 'September', 'October', 'November', 'December']
+    month_name = month_names[int(month)] if isinstance(month, (int, str)) else str(month)
     
     # Create PDF in memory
     pdf_buffer = BytesIO()
@@ -811,7 +816,7 @@ def generate_invoice_pdf(owner_id, month, year, work_entries):
     elements.append(Paragraph('INVOICE', style_title))
     elements.append(Spacer(1, 0.2*cm))
     
-    month_year = f'{month.upper()} {year}'
+    month_year = f'{month_name.upper()} {year}'
     elements.append(Paragraph(f'<b>{month_year}</b>', styles['Normal']))
     elements.append(Spacer(1, 0.5*cm))
     
