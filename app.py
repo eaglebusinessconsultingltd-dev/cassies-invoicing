@@ -881,9 +881,9 @@ def generate_invoice_pdf(owner_id, month, year, work_entries):
     )
     
     # Use a table but with ZERO border width
-    # Adjust column widths: first column narrower for INVOICE, second wider for company name
+    # Make first column WIDER to push INVOICE to the right
     header_data = [['INVOICE', 'Cassie White Equestrian Services']]
-    header_table = Table(header_data, colWidths=[1.8*cm, 18.2*cm])
+    header_table = Table(header_data, colWidths=[12*cm, 8*cm])
     header_table.setStyle(TableStyle([
         ('ALIGN', (0, 0), (0, 0), 'LEFT'),
         ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
@@ -891,7 +891,7 @@ def generate_invoice_pdf(owner_id, month, year, work_entries):
         ('FONTSIZE', (0, 0), (-1, 0), 14),
         ('TOPPADDING', (0, 0), (-1, 0), 0),
         ('BOTTOMPADDING', (0, 0), (-1, 0), 0),
-        ('LEFTPADDING', (0, 0), (-1, 0), 0),
+        ('LEFTPADDING', (0, 0), (0, 0), 40),  # Add left padding to push INVOICE right
         ('RIGHTPADDING', (0, 0), (-1, 0), 0),
     ]))
     elements.append(header_table)
