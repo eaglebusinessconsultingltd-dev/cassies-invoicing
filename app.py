@@ -873,11 +873,17 @@ def generate_invoice_pdf(owner_id, month, year, work_entries):
             by_date[date_key][entry.horse.name] = []
         by_date[date_key][entry.horse.name].append(entry)
     
-    # Build table: Date | Horse1 | Horse2 | Horse3 | etc.
-    # Note: Each horse column will have service names on left, prices on right
+    # Build table: Date | Horse1(Service|Price) | Horse2(Service|Price) | etc.
+    # Each horse gets 2 columns: Service name | Price
     table_data = []
-    header_row = ['Date'] + horses
-    table_data.append(header_row)
+    
+    # Header row 1: Horse names (will be merged across 2 columns each)
+    header_row_1 = ['Date'] + horses
+    table_data.append(header_row_1)
+    
+    # Header row 2: Service | Price labels for each horse
+    header_row_2 = [''] + ['Service', 'Price'] * len(horses)
+    table_data.append(header_row_2)
     
     # Data rows
     for date_key in sorted(by_date.keys()):
@@ -886,55 +892,95 @@ def generate_invoice_pdf(owner_id, month, year, work_entries):
         date_obj = datetime.fromisoformat(date_key).date()
         date_str = date_obj.strftime('%d-%m-%y')
         
-        row = [date_str]
-        for horse in horses:
-            if horse in by_date[date_key]:
-                # Show service + cost for each entry on this date for this horse
-                # Format: ServiceName (duration) right-aligned £price
-                services_list = []
-                for entry in sorted(by_date[date_key][horse], key=lambda x: x.id):
+        # Get all entries for this date, grouped by horse
+        entries_by_horse = {h: [] for h in horses}
+        if date_key in by_date:
+            for horse in horses:
+                if horse in by_date[date_key]:
+                    entries_by_horse[horse] = sorted(by_date[date_key][horse], key=lambda x: x.id)
+        
+        # Find max services on this date across all horses
+        max_services = max([len(entries_by_horse[h]) for h in horses]) if horses else 1
+        
+        # Add a row for each service
+        for service_idx in range(max_services):
+            row = [date_str if service_idx == 0 else '']  # Date only in first row
+            
+            for horse in horses:
+                if service_idx < len(entries_by_horse[horse]):
+                    entry = entries_by_horse[horse][service_idx]
                     service_name = entry.service.name + (f' ({entry.minutes} min)' if entry.service.code == "H" else '')
                     price = f'£{entry.calculate_cost():.2f}'
-                    # Create a two-part entry: service name and price
-                    services_list.append({'name': service_name, 'price': price})
-                
-                # Build cell content: each service on own line with price right-aligned
-                cell_content = '\n'.join([f'{s["name"]:<30} {s["price"]:>10}' for s in services_list])
-                row.append(cell_content)
-            else:
-                row.append('')
-        table_data.append(row)
+                    row.append(service_name)
+                    row.append(price)
+                else:
+                    row.append('')
+                    row.append('')
+            table_data.append(row)
     
     # Add subtotal row per horse
     subtotal_row = ['Subtotal']
     for horse in horses:
         horse_entries = [e for e in work_entries if e.horse.name == horse]
         horse_total = sum(e.calculate_cost() for e in horse_entries)
-        subtotal_row.append(' ' * 30 + f'£{horse_total:.2f}')
+        subtotal_row.append('')  # Empty service cell
+        subtotal_row.append(f'£{horse_total:.2f}')
     table_data.append(subtotal_row)
     
-    # Table width: flexible
-    col_widths = [2*cm] + [(A4[0] - 4*cm - 2*cm) / len(horses)] * len(horses)
+    # Table column widths: Date | (Service, Price) pairs for each horse
+    date_col_width = 2*cm
+    pair_width = (A4[0] - 4*cm - date_col_width) / len(horses)
+    service_col_width = pair_width * 0.6  # 60% for service name
+    price_col_width = pair_width * 0.4    # 40% for price
+    col_widths = [date_col_width] + [service_col_width, price_col_width] * len(horses)
     table = Table(table_data, colWidths=col_widths)
     
-    table.setStyle(TableStyle([
+    # Build style list with dynamic horse header merging
+    style_list = [
+        # Header row 1 (Horse names) - dark background
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#4a4a4a')),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-        ('ALIGN', (0, 0), (0, -1), 'LEFT'),  # Date column: left
-        ('ALIGN', (1, 0), (-1, -1), 'RIGHT'),  # Horse columns: right for prices
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
         ('FONTSIZE', (0, 0), (-1, 0), 9),
         ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
-        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+        ('ALIGN', (0, 0), (0, 0), 'LEFT'),  # Date header
+        # Merge horse name headers across Service+Price columns
+    ]
+    
+    # Add SPAN for each horse (each spans 2 columns: Service | Price)
+    for i in range(len(horses)):
+        col_start = 1 + (i * 2)
+        col_end = col_start + 1
+        style_list.append(('SPAN', (col_start, 0), (col_end, 0)))
+        style_list.append(('ALIGN', (col_start, 0), (col_end, 0), 'CENTER'))
+    
+    # Continue with rest of styles
+    style_list.extend([
+        # Header row 2 (Service | Price) - lighter background
+        ('BACKGROUND', (0, 1), (-1, 1), colors.HexColor('#f0f0f0')),
+        ('FONTNAME', (0, 1), (-1, 1), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 1), (-1, 1), 8),
+        ('ALIGN', (0, 1), (-1, 1), 'CENTER'),
+        # Data rows
+        ('ALIGN', (0, 2), (0, -2), 'LEFT'),   # Date column: left
+        ('ALIGN', (1, 2), (-1, -2), 'LEFT'),  # Service names: left
+        ('ALIGN', (2, 2), (-1, -2), 'RIGHT'), # Prices: right
+        # Subtotal row
         ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
-        ('FONTNAME', (1, 1), (-1, -2), 'Courier'),  # Monospace for service rows
         ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#f0f0f0')),
-        ('TOPPADDING', (0, 1), (-1, -1), 6),
-        ('BOTTOMPADDING', (0, 1), (-1, -1), 6),
-        ('FONTSIZE', (0, 1), (-1, -1), 8),
-        ('FONTSIZE', (0, -1), (-1, -1), 9),  # Subtotal row: slightly larger
+        ('ALIGN', (0, -1), (0, -1), 'LEFT'),
+        ('ALIGN', (1, -1), (-1, -1), 'RIGHT'),
+        # Grid
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+        # Padding
+        ('TOPPADDING', (0, 2), (-1, -1), 6),
+        ('BOTTOMPADDING', (0, 2), (-1, -1), 6),
+        ('FONTSIZE', (0, 2), (-1, -2), 8),
+        ('FONTSIZE', (0, -1), (-1, -1), 9),
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-    ]))
+    ])
+    
+    table.setStyle(TableStyle(style_list))
     
     elements.append(table)
     elements.append(Spacer(1, 0.4*cm))
