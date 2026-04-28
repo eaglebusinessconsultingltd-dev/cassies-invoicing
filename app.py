@@ -90,12 +90,8 @@ class WorkEntry(db.Model):
     def calculate_cost(self):
         """Calculate cost based on service type and duration."""
         if self.service.requires_time:
-            # Hold pricing: ≤15 mins = £5, >15 mins = £15 per hour (or part)
-            if self.minutes <= 15:
-                return 5.0
-            else:
-                hours = (self.minutes - 15) / 60.0
-                return 5.0 + (15.0 * (1 if hours > 0 else 0))  # Actually: 15 per full or partial hour
+            # Hold pricing - use the global calculate_hold_price function
+            return calculate_hold_price(self.minutes)
         else:
             # Fixed price
             return self.service.base_price
