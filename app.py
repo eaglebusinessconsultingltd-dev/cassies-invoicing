@@ -860,25 +860,41 @@ def generate_invoice_pdf(owner_id, month, year, work_entries):
     # Build content
     elements = []
     
-    # Header: INVOICE (left) and Company (right) on same line - use full width
-    # A4 width is 21cm, with 0.5cm margins on each side = 20cm available
-    header_table = Table([['INVOICE', 'Cassie White Equestrian Services']], colWidths=[5*cm, 15*cm])
+    # Header: INVOICE (left) and Company (right) on same line - use Paragraph with tabs/spacing
+    # Create a simple two-column effect without table borders
+    from reportlab.lib.enums import TA_RIGHT
+    
+    header_style_left = ParagraphStyle(
+        'HeaderLeft',
+        parent=styles['Normal'],
+        fontSize=14,
+        fontName='Helvetica-Bold',
+        alignment=TA_LEFT,
+    )
+    
+    header_style_right = ParagraphStyle(
+        'HeaderRight',
+        parent=styles['Normal'],
+        fontSize=14,
+        fontName='Helvetica-Bold',
+        alignment=TA_RIGHT,
+    )
+    
+    # Use a table but with ZERO border width
+    header_data = [['INVOICE', 'Cassie White Equestrian Services']]
+    header_table = Table(header_data, colWidths=[10*cm, 10*cm])
     header_table.setStyle(TableStyle([
         ('ALIGN', (0, 0), (0, 0), 'LEFT'),
         ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
         ('FONTSIZE', (0, 0), (-1, 0), 14),
-        ('LINEBELOW', (0, 0), (-1, 0), 0, colors.whitesmoke),  # No line
-        ('LINEABOVE', (0, 0), (-1, 0), 0, colors.whitesmoke),  # No line
-        ('LINELEFT', (0, 0), (-1, 0), 0, colors.whitesmoke),   # No line
-        ('LINERIGHT', (0, 0), (-1, 0), 0, colors.whitesmoke),  # No line
         ('TOPPADDING', (0, 0), (-1, 0), 0),
         ('BOTTOMPADDING', (0, 0), (-1, 0), 0),
         ('LEFTPADDING', (0, 0), (-1, 0), 0),
         ('RIGHTPADDING', (0, 0), (-1, 0), 0),
     ]))
     elements.append(header_table)
-    elements.append(Spacer(1, 0.3*cm))
+    elements.append(Spacer(1, 0.2*cm))
     
     month_year = f'{month_name.upper()} {year}'
     elements.append(Paragraph(f'<b>{month_year}</b>', styles['Normal']))
