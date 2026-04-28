@@ -39,10 +39,6 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
 
-# Initialize database tables and data on app creation
-with app.app_context():
-    db.create_all()
-
 # ============================================================================
 # DATABASE MODELS
 # ============================================================================
@@ -118,6 +114,13 @@ class Invoice(db.Model):
     def __repr__(self):
         return f'<Invoice {self.owner.name} - {self.month} {self.year}>'
 
+
+# ============================================================================
+# INITIALIZE DATABASE TABLES (after models are defined)
+# ============================================================================
+
+with app.app_context():
+    db.create_all()
 
 # ============================================================================
 # UTILITY FUNCTIONS
