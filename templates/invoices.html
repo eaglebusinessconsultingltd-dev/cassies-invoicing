@@ -46,6 +46,10 @@
         <div class="spinner"></div>
         Loading invoice history...
     </div>
+    
+    <div style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid #ddd;">
+        <button class="button" id="btn-download-all" style="background-color: #27ae60;">Download All Invoices for Selected Month</button>
+    </div>
 </div>
 
 <script>
@@ -143,6 +147,48 @@
         } finally {
             this.disabled = false;
             this.textContent = 'Generate All Invoices';
+        }
+    });
+    
+    // Download all invoices
+    document.getElementById('btn-download-all').addEventListener('click', async function() {
+        const month = monthSelect.value;
+        const year = yearSelect.value;
+        
+        if (!month || !year) {
+            showAlert('Please select a month and year', 'error');
+            return;
+        }
+        
+        this.disabled = true;
+        this.textContent = 'Downloading...';
+        
+        try {
+            // Fetch ZIP file with all invoices
+            const response = await fetch(`/api/invoices/download-all?month=${parseInt(month) + 1}&year=${year}`);
+            
+            if (!response.ok) {
+                showAlert('Error downloading invoices', 'error');
+                return;
+            }
+            
+            // Create blob and download
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `invoices_${monthNames[month]}_${year}.zip`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+            
+            showAlert('Invoices downloaded successfully', 'success');
+        } catch (error) {
+            showAlert('Error downloading invoices: ' + error.message, 'error');
+        } finally {
+            this.disabled = false;
+            this.textContent = 'Download All Invoices';
         }
     });
     

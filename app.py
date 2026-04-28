@@ -529,6 +529,41 @@ def get_invoice_pdf(invoice_id):
     )
 
 
+@app.route('/api/invoices/download-all', methods=['GET'])
+def download_all_invoices():
+    """Download all invoices for a month as a ZIP file."""
+    import zipfile
+    
+    month = request.args.get('month', type=int)
+    year = request.args.get('year', type=int)
+    
+    if not month or not year:
+        return {'error': 'Month and year required'}, 400
+    
+    # Get all invoices for this month/year
+    invoices = Invoice.query.filter(
+        Invoice.month == month,
+        Invoice.year == year
+    ).all()
+    
+    if not invoices:
+        return {'error': 'No invoices found for this month'}, 404
+    
+    # Create ZIP file in memory
+    zip_buffer = BytesIO()
+    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+        for invoice in invoices:
+            if invoice.pdf_data:
+                filename = f'{invoice.owner.name}_{month:02d}_{year}.pdf'
+                zip_file.writestr(filename, invoice.pdf_data)
+    
+    zip_buffer.seek(0)
+    return send_file(
+        zip_buffer,
+        mimetype='application/zip',
+        as_attachment=True,
+        download_name=f'invoices_{month:02d}_{year}.zip'
+    )
 
 
 # ============================================================================
@@ -839,21 +874,33 @@ def generate_invoice_pdf(owner_id, month, year, work_entries):
         by_date[date_key][entry.horse.name].append(entry)
     
     # Build table: Date | Horse1 | Horse2 | Horse3 | etc.
+    # Note: Each horse column will have service names on left, prices on right
     table_data = []
     header_row = ['Date'] + horses
     table_data.append(header_row)
     
     # Data rows
     for date_key in sorted(by_date.keys()):
-        row = [date_key.split('T')[0]]  # Date only
+        # Format date as DD-MM-YY
+        from datetime import datetime
+        date_obj = datetime.fromisoformat(date_key).date()
+        date_str = date_obj.strftime('%d-%m-%y')
+        
+        row = [date_str]
         for horse in horses:
             if horse in by_date[date_key]:
                 # Show service + cost for each entry on this date for this horse
-                services_text = '\n'.join([
-                    f'{entry.service.name}' + (f' ({entry.minutes} min)' if entry.service.code == "H" else '') + f' £{entry.calculate_cost():.2f}'
-                    for entry in sorted(by_date[date_key][horse], key=lambda x: x.id)
-                ])
-                row.append(services_text)
+                # Format: ServiceName (duration) right-aligned £price
+                services_list = []
+                for entry in sorted(by_date[date_key][horse], key=lambda x: x.id):
+                    service_name = entry.service.name + (f' ({entry.minutes} min)' if entry.service.code == "H" else '')
+                    price = f'£{entry.calculate_cost():.2f}'
+                    # Create a two-part entry: service name and price
+                    services_list.append({'name': service_name, 'price': price})
+                
+                # Build cell content: each service on own line with price right-aligned
+                cell_content = '\n'.join([f'{s["name"]:<30} {s["price"]:>10}' for s in services_list])
+                row.append(cell_content)
             else:
                 row.append('')
         table_data.append(row)
@@ -863,7 +910,7 @@ def generate_invoice_pdf(owner_id, month, year, work_entries):
     for horse in horses:
         horse_entries = [e for e in work_entries if e.horse.name == horse]
         horse_total = sum(e.calculate_cost() for e in horse_entries)
-        subtotal_row.append(f'£{horse_total:.2f}')
+        subtotal_row.append(f'{'':30}£{horse_total:.2f}')
     table_data.append(subtotal_row)
     
     # Table width: flexible
@@ -873,17 +920,19 @@ def generate_invoice_pdf(owner_id, month, year, work_entries):
     table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#4a4a4a')),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-        ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+        ('ALIGN', (0, 0), (0, -1), 'LEFT'),  # Date column: left
+        ('ALIGN', (1, 0), (-1, -1), 'RIGHT'),  # Horse columns: right for prices
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
         ('FONTSIZE', (0, 0), (-1, 0), 9),
         ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
         ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
         ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+        ('FONTNAME', (1, 1), (-1, -2), 'Courier'),  # Monospace for service rows
         ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#f0f0f0')),
         ('TOPPADDING', (0, 1), (-1, -1), 6),
         ('BOTTOMPADDING', (0, 1), (-1, -1), 6),
         ('FONTSIZE', (0, 1), (-1, -1), 8),
+        ('FONTSIZE', (0, -1), (-1, -1), 9),  # Subtotal row: slightly larger
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
     ]))
     
