@@ -910,7 +910,7 @@ def generate_invoice_pdf(owner_id, month, year, work_entries):
     for horse in horses:
         horse_entries = [e for e in work_entries if e.horse.name == horse]
         horse_total = sum(e.calculate_cost() for e in horse_entries)
-        subtotal_row.append(f'{'':30}£{horse_total:.2f}')
+        subtotal_row.append(' ' * 30 + f'£{horse_total:.2f}')
     table_data.append(subtotal_row)
     
     # Table width: flexible
