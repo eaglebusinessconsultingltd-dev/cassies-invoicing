@@ -204,6 +204,7 @@
                                     <th style="padding: 0.5rem; text-align: left;">Date</th>
                                     <th style="padding: 0.5rem; text-align: left;">Horse</th>
                                     <th style="padding: 0.5rem; text-align: left;">Service</th>
+                                    <th style="padding: 0.5rem; text-align: left;">Duration</th>
                                     <th style="padding: 0.5rem; text-align: right;">Cost</th>
                                 </tr>
                             </thead>
@@ -213,11 +214,13 @@
                 ownerEntries.sort((a, b) => new Date(a.date) - new Date(b.date)).forEach(entry => {
                     const dateObj = new Date(entry.date);
                     const dateStr = dateObj.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+                    const durationStr = entry.service_code === 'H' ? `${entry.minutes} min` : '';
                     html += `
                         <tr>
                             <td style="padding: 0.5rem;">${dateStr}</td>
                             <td style="padding: 0.5rem;">${entry.horse_name}</td>
                             <td style="padding: 0.5rem;">${entry.service_name}</td>
+                            <td style="padding: 0.5rem;">${durationStr}</td>
                             <td style="padding: 0.5rem; text-align: right;">£${entry.cost.toFixed(2)}</td>
                         </tr>
                     `;

@@ -426,14 +426,14 @@ def generate_invoices():
             # Only generate if there are work entries
             if work_entries:
                 # Generate PDF
-                pdf_buffer = generate_invoice_pdf(owner.id, month, year, work_entries)
+                pdf_data = generate_invoice_pdf(owner.id, month, year, work_entries)
                 
                 # Save invoice record
                 invoice = Invoice(
                     owner_id=owner.id,
                     month=month,
                     year=year,
-                    pdf_data=pdf_buffer.getvalue() if pdf_buffer else None
+                    pdf_data=pdf_data
                 )
                 db.session.add(invoice)
                 generated_count += 1
