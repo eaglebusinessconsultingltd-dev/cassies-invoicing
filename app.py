@@ -18,7 +18,7 @@ Access: http://localhost:5000
 
 from flask import Flask, render_template, request, jsonify, send_file
 from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from io import BytesIO
 import json
 import os
@@ -299,6 +299,66 @@ def get_invoices():
         'year': invoice.year,
         'created_at': invoice.created_at.isoformat(),
     } for invoice in invoices])
+
+
+@app.route('/api/invoices/generate', methods=['POST'])
+def generate_invoices():
+    """Generate invoices for all owners for a given month."""
+    data = request.json
+    month = int(data.get('month'))
+    year = int(data.get('year'))
+    
+    if not month or not year:
+        return jsonify({'error': 'Month and year required'}), 400
+    
+    # Get all owners
+    owners = Owner.query.all()
+    generated_count = 0
+    errors = []
+    
+    for owner in owners:
+        try:
+            # Get work entries for this owner in this month
+            start_date = date(year, month, 1)
+            if month == 12:
+                end_date = date(year + 1, 1, 1) - timedelta(days=1)
+            else:
+                end_date = date(year, month + 1, 1) - timedelta(days=1)
+            
+            work_entries = WorkEntry.query.filter(
+                WorkEntry.date >= start_date,
+                WorkEntry.date <= end_date,
+                WorkEntry.horse.has(Horse.owner_id == owner.id)
+            ).all()
+            
+            # Only generate if there are work entries
+            if work_entries:
+                # Generate PDF
+                pdf_buffer = generate_invoice_pdf(owner.id, month, year, work_entries)
+                
+                # Save invoice record
+                invoice = Invoice(
+                    owner_id=owner.id,
+                    month=month,
+                    year=year,
+                    pdf_data=pdf_buffer.getvalue() if pdf_buffer else None
+                )
+                db.session.add(invoice)
+                generated_count += 1
+        except Exception as e:
+            errors.append(f"{owner.name}: {str(e)}")
+    
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': f'Database error: {str(e)}'}), 500
+    
+    return jsonify({
+        'success': True,
+        'generated': generated_count,
+        'errors': errors
+    })
 
 
 @app.route('/api/invoices/<int:invoice_id>/pdf', methods=['GET'])
