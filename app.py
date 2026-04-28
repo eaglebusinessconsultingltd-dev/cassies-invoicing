@@ -868,11 +868,14 @@ def generate_invoice_pdf(owner_id, month, year, work_entries):
         ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
         ('FONTSIZE', (0, 0), (-1, 0), 14),
-        ('GRID', (0, 0), (-1, -1), 0, colors.whitesmoke),  # No visible grid lines
-        ('TOPPADDING', (0, 0), (-1, -1), 0),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
-        ('LEFTPADDING', (0, 0), (-1, -1), 0),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+        ('LINEBELOW', (0, 0), (-1, 0), 0, colors.whitesmoke),  # No line
+        ('LINEABOVE', (0, 0), (-1, 0), 0, colors.whitesmoke),  # No line
+        ('LINELEFT', (0, 0), (-1, 0), 0, colors.whitesmoke),   # No line
+        ('LINERIGHT', (0, 0), (-1, 0), 0, colors.whitesmoke),  # No line
+        ('TOPPADDING', (0, 0), (-1, 0), 0),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 0),
+        ('LEFTPADDING', (0, 0), (-1, 0), 0),
+        ('RIGHTPADDING', (0, 0), (-1, 0), 0),
     ]))
     elements.append(header_table)
     elements.append(Spacer(1, 0.3*cm))
