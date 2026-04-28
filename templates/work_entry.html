@@ -104,10 +104,34 @@
     // Load initial data
     async function loadInitialData() {
         try {
-            // Load owners
+            // Load owners and horses
             const ownerResponse = await fetch('/api/owners');
             owners = await ownerResponse.json();
             
+            const horseResponse = await fetch('/api/horses');
+            const horses_data = await horseResponse.json();
+            
+            // Build a map: horseId -> ownerId for quick lookup
+            const horseToOwnerMap = {};
+            owners.forEach(owner => {
+                if (owner.horses) {
+                    owner.horses.forEach(horse => {
+                        horseToOwnerMap[horse.id] = owner.id;
+                    });
+                }
+            });
+            
+            // Populate horse dropdown with ALL horses
+            const horseSelect = document.getElementById('work-horse');
+            horses_data.forEach(horse => {
+                const option = document.createElement('option');
+                option.value = horse.id;
+                option.textContent = horse.name;
+                option.dataset.ownerId = horse.owner_id;  // Store owner ID as data attribute
+                horseSelect.appendChild(option);
+            });
+            
+            // Populate owner dropdown (for reference, will auto-populate on horse selection)
             const ownerSelect = document.getElementById('work-owner');
             owners.forEach(owner => {
                 const option = document.createElement('option');
@@ -145,22 +169,21 @@
         setTimeout(() => alert.remove(), 5000);
     }
     
-    // Handle owner selection
-    document.getElementById('work-owner').addEventListener('change', function() {
-        const selectedOwnerId = parseInt(this.value);
-        const selectedOwner = owners.find(o => o.id === selectedOwnerId);
+    // Handle horse selection - auto-populate owner
+    document.getElementById('work-horse').addEventListener('change', function() {
+        const selectedHorse = this.options[this.selectedIndex];
+        const ownerId = selectedHorse.dataset.ownerId;
         
-        const horseSelect = document.getElementById('work-horse');
-        horseSelect.innerHTML = '<option value="">-- Select Horse --</option>';
-        
-        if (selectedOwner) {
-            selectedOwner.horses.forEach(horse => {
-                const option = document.createElement('option');
-                option.value = horse.id;
-                option.textContent = horse.name;
-                horseSelect.appendChild(option);
-            });
+        if (ownerId) {
+            document.getElementById('work-owner').value = ownerId;
+        } else {
+            document.getElementById('work-owner').value = '';
         }
+    });
+    
+    // Handle owner selection (kept for backwards compatibility, but horse selection drives it now)
+    document.getElementById('work-owner').addEventListener('change', function() {
+        // Owner is now auto-set by horse selection, but keep this for manual overrides if needed
     });
     
     // Handle service selection
