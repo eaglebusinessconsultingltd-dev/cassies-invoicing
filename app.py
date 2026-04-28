@@ -838,7 +838,7 @@ def generate_invoice_pdf(owner_id, month, year, work_entries):
     # Create PDF in memory
     pdf_buffer = BytesIO()
     doc = SimpleDocTemplate(pdf_buffer, pagesize=A4, topMargin=0.5*cm, bottomMargin=0.5*cm,
-                           leftMargin=2*cm, rightMargin=2*cm)
+                           leftMargin=0.5*cm, rightMargin=0.5*cm)
     
     styles = getSampleStyleSheet()
     style_title = ParagraphStyle(
@@ -860,10 +860,20 @@ def generate_invoice_pdf(owner_id, month, year, work_entries):
     # Build content
     elements = []
     
-    # Header: INVOICE on one line, company on next
-    elements.append(Paragraph('INVOICE', style_title))
-    elements.append(Paragraph('Cassie White Equestrian Services', style_company))
-    elements.append(Spacer(1, 0.2*cm))
+    # Header: INVOICE (left) and Company (right) on same line
+    header_table = Table([['INVOICE', 'Cassie White Equestrian Services']], colWidths=[2*cm, 4*cm])
+    header_table.setStyle(TableStyle([
+        ('ALIGN', (0, 0), (0, 0), 'LEFT'),
+        ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
+        ('FONTNAME', (0, 0), (0, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (0, 0), 14),
+        ('FONTSIZE', (1, 0), (1, 0), 11),
+        ('GRID', (0, 0), (-1, -1), 0, colors.white),  # No grid lines
+        ('TOPPADDING', (0, 0), (-1, -1), 0),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+    ]))
+    elements.append(header_table)
+    elements.append(Spacer(1, 0.3*cm))
     
     month_year = f'{month_name.upper()} {year}'
     elements.append(Paragraph(f'<b>{month_year}</b>', styles['Normal']))
@@ -976,6 +986,12 @@ def generate_invoice_pdf(owner_id, month, year, work_entries):
         col_end = col_start + 1
         style_list.append(('SPAN', (col_start, 0), (col_end, 0)))
         style_list.append(('ALIGN', (col_start, 0), (col_end, 0), 'CENTER'))
+        # Align service columns (odd) LEFT and price columns (even) RIGHT
+        style_list.append(('ALIGN', (col_start, 2), (col_start, -2), 'LEFT'))   # Service: LEFT
+        style_list.append(('ALIGN', (col_end, 2), (col_end, -2), 'RIGHT'))      # Price: RIGHT
+        # Also align subtotal row properly
+        style_list.append(('ALIGN', (col_start, -1), (col_start, -1), 'LEFT'))   # Service blank
+        style_list.append(('ALIGN', (col_end, -1), (col_end, -1), 'RIGHT'))      # Price
     
     # Continue with rest of styles
     style_list.extend([
@@ -984,10 +1000,8 @@ def generate_invoice_pdf(owner_id, month, year, work_entries):
         ('FONTNAME', (0, 1), (-1, 1), 'Helvetica-Bold'),
         ('FONTSIZE', (0, 1), (-1, 1), 7),
         ('ALIGN', (0, 1), (-1, 1), 'CENTER'),
-        # Data rows
+        # Data rows - need to alternate LEFT for services, RIGHT for prices
         ('ALIGN', (0, 2), (0, -2), 'LEFT'),   # Date column: left
-        ('ALIGN', (1, 2), (-1, -2), 'LEFT'),  # Service names: left
-        ('ALIGN', (2, 2), (-1, -2), 'RIGHT'), # Prices: right
         # Subtotal row
         ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
         ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#f0f0f0')),
