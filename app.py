@@ -127,7 +127,7 @@ with app.app_context():
 # ============================================================================
 
 def init_default_data():
-    """Initialize database with default services and sample data."""
+    """Initialize database with services and Cassie's real owner/horse data."""
     if db.session.query(Service).first() is not None:
         return  # Already initialized
     
@@ -149,15 +149,51 @@ def init_default_data():
     for service in services:
         db.session.add(service)
     
-    # Sample owners and horses
+    # Cassie's real owners and horses (from CSV)
     owners_horses = {
-        'Amy S': ['Ronnie', 'Valli'],
-        'Ashleigh': ['Phoenix'],
+        'Amy S': ['Ronnie'],
+        'Ashliegh': ['Valli'],
+        'Bethany': ['Phoenix'],
         'Bill': ['Freddie'],
         'Briony': ['Shiloe', 'Stardust'],
         'Cassie': ['Willy Wonka'],
         'Courtney': ['Jessie'],
-        'Donna': ['Elphie', 'Benny'],
+        'Donna': ['Elphie', 'Benny', 'Maisie'],
+        'Emma': ['Lexi'],
+        'Harleigh': ['Jack', 'Mac', 'Louis'],
+        'Heidi': ['Freddie1', 'Waffle'],
+        'Jacquie': ['Sully', 'B'],
+        'Jade': ['George'],
+        'Jess': ['Tilly'],
+        'Jess S': ['Jude'],
+        'Joanne': ['Maverick'],
+        'Julie': ['Amy', 'Tom'],
+        'Kelly': ['Emerald', 'Mike'],
+        'Lauren': ['Nola'],
+        'Lindsay': ['Sonic', 'Didi'],
+        'Lyn': ['Mystique'],
+        'Mark': ['Lenny'],
+        'Michelle': ['Misty'],
+        'Natalie & Jason': ['Hodor', 'Rupert', 'William', 'Shaun', 'Jacko', 'Cassius', 'Dan'],
+        'Natalie M': ['Jasper', 'Aero', 'Rio', 'Fred'],
+        'Nikki': ['Blossom'],
+        'Nikki B': ['Charlie'],
+        'Olivia': ['Sid', 'Dottie'],
+        'Pauline': ['Stan'],
+        'Purdy': ['Belle'],
+        'Richard': ['Echo'],
+        'Ruth': ['Oreo', 'Horis', 'Porter'],
+        'Sam': ['Gem'],
+        'Samantha Jackson': ['Jakus'],
+        'Sandra': ['Bear'],
+        'Sarah': ['Abe'],
+        'Serena': ['Busker'],
+        'Shannon': ['Sadie', 'Billy'],
+        'Sharron': ['Flo'],
+        'Sophie': ['Tammy', 'Billy2'],
+        'Steph': ['Abs', 'Crumble'],
+        'Sue': ['Feargal', 'Dulcie'],
+        'Tracy': ['Saffy', 'Fancy'],
     }
     
     for owner_name, horse_names in owners_horses.items():
@@ -377,6 +413,8 @@ def get_invoice_pdf(invoice_id):
     )
 
 
+
+
 # ============================================================================
 # ROUTES - PAGES
 # ============================================================================
@@ -403,6 +441,7 @@ def invoices_page():
 def settings_page():
     """Settings page (owners, horses, services, pricing)."""
     return render_template('settings.html')
+
 
 
 # ============================================================================
