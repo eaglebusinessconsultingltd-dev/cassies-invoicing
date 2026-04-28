@@ -778,17 +778,9 @@ def delete_service(service_id):
 
 def generate_invoice_pdf(owner_id, month, year, work_entries):
     """
-    Generate a PDF invoice for an owner.
-    
-    Args:
-        owner_id: Owner ID
-        month: Month number (1-12)
-        year: Year (e.g., 2026)
-        work_entries: List of work entries for this month
-    
-    Returns:
-        BytesIO object with PDF data
+    Generate a PDF invoice for an owner with multi-horse layout.
     """
+    from reportlab.lib.enums import TA_LEFT
     owner = Owner.query.get(owner_id)
     
     # Convert month number to month name
@@ -798,82 +790,133 @@ def generate_invoice_pdf(owner_id, month, year, work_entries):
     
     # Create PDF in memory
     pdf_buffer = BytesIO()
-    doc = SimpleDocTemplate(pdf_buffer, pagesize=A4, topMargin=0.5*cm, bottomMargin=0.5*cm)
+    doc = SimpleDocTemplate(pdf_buffer, pagesize=A4, topMargin=0.5*cm, bottomMargin=0.5*cm,
+                           leftMargin=2*cm, rightMargin=2*cm)
     
     styles = getSampleStyleSheet()
     style_title = ParagraphStyle(
         'CustomTitle',
-        parent=styles['Heading1'],
-        fontSize=16,
-        textColor=colors.HexColor('#4a4a4a'),
-        spaceAfter=12,
+        parent=styles['Normal'],
+        fontSize=14,
+        textColor=colors.HexColor('#2a2a2a'),
+        spaceAfter=0,
         alignment=TA_LEFT,
+    )
+    style_company = ParagraphStyle(
+        'Company',
+        parent=styles['Normal'],
+        fontSize=11,
+        textColor=colors.HexColor('#2a2a2a'),
+        spaceAfter=8,
     )
     
     # Build content
     elements = []
     
-    # Header
+    # Header: INVOICE on one line, company on next
     elements.append(Paragraph('INVOICE', style_title))
+    elements.append(Paragraph('Cassie White Equestrian Services', style_company))
     elements.append(Spacer(1, 0.2*cm))
     
     month_year = f'{month_name.upper()} {year}'
     elements.append(Paragraph(f'<b>{month_year}</b>', styles['Normal']))
-    elements.append(Spacer(1, 0.5*cm))
+    elements.append(Spacer(1, 0.3*cm))
     
     # Owner info
     elements.append(Paragraph(f'<b>Owner:</b> {owner.name}', styles['Normal']))
-    horses = set(entry.horse.name for entry in work_entries)
-    elements.append(Paragraph(f'<b>Horses:</b> {", ".join(sorted(horses))}', styles['Normal']))
-    elements.append(Spacer(1, 0.5*cm))
+    horses = sorted(set(entry.horse.name for entry in work_entries))
+    elements.append(Paragraph(f'<b>Horses:</b> {", ".join(horses)}', styles['Normal']))
+    elements.append(Spacer(1, 0.3*cm))
     
-    # Invoice table
-    table_data = [['Date', 'Horse', 'Activity', 'Cost']]
+    # Multi-horse layout: group by date and horse
+    by_date = {}
+    for entry in work_entries:
+        date_key = entry.date.isoformat()
+        if date_key not in by_date:
+            by_date[date_key] = {}
+        if entry.horse.name not in by_date[date_key]:
+            by_date[date_key][entry.horse.name] = []
+        by_date[date_key][entry.horse.name].append(entry)
     
-    for entry in sorted(work_entries, key=lambda x: (x.date, x.horse.name)):
-        date_str = entry.date.strftime('%d %b') if hasattr(entry.date, 'strftime') else str(entry.date)
-        table_data.append([
-            date_str,
-            entry.horse.name,
-            entry.service.name,
-            f"£{entry.calculate_cost():.2f}",
-        ])
+    # Build table: Date | Horse1 | Horse2 | Horse3 | etc.
+    table_data = []
+    header_row = ['Date'] + horses
+    table_data.append(header_row)
     
-    # Add total row
-    total = sum(entry.calculate_cost() for entry in work_entries)
-    table_data.append(['', '', 'TOTAL', f"£{total:.2f}"])
+    # Data rows
+    for date_key in sorted(by_date.keys()):
+        row = [date_key.split('T')[0]]  # Date only
+        for horse in horses:
+            if horse in by_date[date_key]:
+                # Show service + cost for each entry on this date for this horse
+                services_text = '\n'.join([
+                    f'{entry.service.name} £{entry.calculate_cost():.2f}'
+                    for entry in sorted(by_date[date_key][horse], key=lambda x: x.id)
+                ])
+                row.append(services_text)
+            else:
+                row.append('')
+        table_data.append(row)
     
-    # Style table
-    table = Table(table_data, colWidths=[2.3*cm, 3.2*cm, 5.5*cm, 2*cm])
+    # Add subtotal row per horse
+    subtotal_row = ['Subtotal']
+    for horse in horses:
+        horse_entries = [e for e in work_entries if e.horse.name == horse]
+        horse_total = sum(e.calculate_cost() for e in horse_entries)
+        subtotal_row.append(f'£{horse_total:.2f}')
+    table_data.append(subtotal_row)
+    
+    # Table width: flexible
+    col_widths = [2*cm] + [(A4[0] - 4*cm - 2*cm) / len(horses)] * len(horses)
+    table = Table(table_data, colWidths=col_widths)
+    
     table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#4a4a4a')),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
         ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-        ('ALIGN', (-1, 0), (-1, -1), 'RIGHT'),
+        ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, 0), 10),
-        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('FONTSIZE', (0, 0), (-1, 0), 9),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
         ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
         ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
         ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#f0f0f0')),
-        ('TOPPADDING', (0, 1), (-1, -1), 8),
-        ('BOTTOMPADDING', (0, 1), (-1, -1), 8),
+        ('TOPPADDING', (0, 1), (-1, -1), 6),
+        ('BOTTOMPADDING', (0, 1), (-1, -1), 6),
+        ('FONTSIZE', (0, 1), (-1, -1), 8),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
     ]))
     
     elements.append(table)
-    elements.append(Spacer(1, 1*cm))
+    elements.append(Spacer(1, 0.4*cm))
+    
+    # Grand total
+    total = sum(entry.calculate_cost() for entry in work_entries)
+    elements.append(Paragraph(f'<b>TOTAL: £{total:.2f}</b>', styles['Normal']))
+    elements.append(Spacer(1, 0.4*cm))
     
     # Payment details
+    elements.append(Paragraph('<b>Invoice Due For Immediate Payment Please:</b>', styles['Normal']))
+    elements.append(Paragraph('Cassie White Equestrian Services Ltd<br/>Sort code: 60-83-71<br/>Account number: 62430438', styles['Normal']))
+    elements.append(Paragraph('<i>Use your horse\'s name as a reference</i>', styles['Normal']))
+    elements.append(Spacer(1, 0.3*cm))
+    
+    # Terms - bold
+    terms_style = ParagraphStyle(
+        'Terms',
+        parent=styles['Normal'],
+        fontSize=8,
+        textColor=colors.HexColor('#2a2a2a'),
+    )
     elements.append(Paragraph(
-        '<b>Payment details:</b><br/>C S White<br/>Sort code: 20-03-18<br/>Account: 13901858<br/>Reference: Use your horse\'s name',
-        styles['Normal']
+        '<b>Invoices to be paid upon receipt. Late or non-payment may result in services being refused.</b>',
+        terms_style
     ))
     
     # Build PDF
     doc.build(elements)
     pdf_buffer.seek(0)
-    
-    return pdf_buffer
+    return pdf_buffer.getvalue()
 
 
 # ============================================================================
