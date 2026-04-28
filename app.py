@@ -39,6 +39,10 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
 
+# Initialize database tables and data on app creation
+with app.app_context():
+    db.create_all()
+
 # ============================================================================
 # DATABASE MODELS
 # ============================================================================
@@ -659,6 +663,18 @@ def init_db():
     db.create_all()
     init_default_data()
     print('Database initialized!')
+
+
+# Auto-initialize database on first run
+@app.before_request
+def init_on_first_run():
+    """Initialize default data if not already done."""
+    try:
+        # Always try to initialize - the function checks if already done
+        init_default_data()
+    except Exception as e:
+        # Log but don't crash
+        print(f"Warning: Could not initialize data: {e}")
 
 
 @app.cli.command()
