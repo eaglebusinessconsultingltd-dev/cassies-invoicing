@@ -880,28 +880,48 @@ def generate_invoice_pdf(owner_id, month, year, work_entries):
         alignment=TA_RIGHT,
     )
     
-    # Use a table but with ZERO border width
-    # Make first column WIDER to push INVOICE to the right
-    header_data = [['INVOICE', 'Cassie White Equestrian Services']]
-    header_table = Table(header_data, colWidths=[12*cm, 8*cm])
-    header_table.setStyle(TableStyle([
+    # Header: INVOICE (left) and Company (right) - use Paragraphs without indent
+    invoice_style = ParagraphStyle(
+        'InvoiceHeader',
+        parent=styles['Normal'],
+        fontSize=14,
+        fontName='Helvetica-Bold',
+        leftIndent=0,  # No indent - INVOICE at left
+    )
+    
+    company_style = ParagraphStyle(
+        'CompanyHeader',
+        parent=styles['Normal'],
+        fontSize=14,
+        fontName='Helvetica-Bold',
+        alignment=TA_RIGHT,
+    )
+    
+    # INVOICE on left and Company on right (separate paragraph)
+    invoice_para = Paragraph('<b>INVOICE</b>', invoice_style)
+    company_para = Paragraph('<b>Cassie White Equestrian Services</b>', company_style)
+    
+    # Create a simple table to position them side by side
+    header_layout = Table([
+        [invoice_para, company_para]
+    ], colWidths=[10*cm, 10*cm])
+    header_layout.setStyle(TableStyle([
         ('ALIGN', (0, 0), (0, 0), 'LEFT'),
         ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, 0), 14),
+        ('VALIGN', (0, 0), (-1, 0), 'TOP'),
         ('TOPPADDING', (0, 0), (-1, 0), 0),
         ('BOTTOMPADDING', (0, 0), (-1, 0), 0),
-        ('LEFTPADDING', (0, 0), (0, 0), 40),  # Add left padding to push INVOICE right
+        ('LEFTPADDING', (0, 0), (-1, 0), 0),
         ('RIGHTPADDING', (0, 0), (-1, 0), 0),
     ]))
-    elements.append(header_table)
-    elements.append(Spacer(1, 0.2*cm))
+    elements.append(header_layout)
+    elements.append(Spacer(1, 0.15*cm))
     
     month_year = f'{month_name.upper()} {year}'
     elements.append(Paragraph(f'<b>{month_year}</b>', styles['Normal']))
-    elements.append(Spacer(1, 0.3*cm))
+    elements.append(Spacer(1, 0.2*cm))
     
-    # Owner info
+    # Owner info - no indent, at left margin
     elements.append(Paragraph(f'<b>Owner:</b> {owner.name}', styles['Normal']))
     horses = sorted(set(entry.horse.name for entry in work_entries))
     elements.append(Paragraph(f'<b>Horses:</b> {", ".join(horses)}', styles['Normal']))
