@@ -822,24 +822,24 @@ def generate_invoice_pdf(owner_id, month, year, work_entries):
     
     # Owner info
     elements.append(Paragraph(f'<b>Owner:</b> {owner.name}', styles['Normal']))
-    horses = set(entry['horse_name'] for entry in work_entries)
+    horses = set(entry.horse.name for entry in work_entries)
     elements.append(Paragraph(f'<b>Horses:</b> {", ".join(sorted(horses))}', styles['Normal']))
     elements.append(Spacer(1, 0.5*cm))
     
     # Invoice table
     table_data = [['Date', 'Horse', 'Activity', 'Cost']]
     
-    for entry in sorted(work_entries, key=lambda x: (x['date'], x['horse_name'])):
-        date_str = entry['date'].strftime('%d %b') if hasattr(entry['date'], 'strftime') else str(entry['date'])
+    for entry in sorted(work_entries, key=lambda x: (x.date, x.horse.name)):
+        date_str = entry.date.strftime('%d %b') if hasattr(entry.date, 'strftime') else str(entry.date)
         table_data.append([
             date_str,
-            entry['horse_name'],
-            entry['service_name'],
-            f"£{entry['cost']:.2f}",
+            entry.horse.name,
+            entry.service.name,
+            f"£{entry.calculate_cost():.2f}",
         ])
     
     # Add total row
-    total = sum(entry['cost'] for entry in work_entries)
+    total = sum(entry.calculate_cost() for entry in work_entries)
     table_data.append(['', '', 'TOTAL', f"£{total:.2f}"])
     
     # Style table
