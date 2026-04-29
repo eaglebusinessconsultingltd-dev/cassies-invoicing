@@ -191,11 +191,41 @@
             let html = '';
             Object.keys(byOwner).sort().forEach(owner => {
                 const ownerEntries = byOwner[owner];
-                let total = ownerEntries.reduce((sum, e) => sum + e.cost, 0);
+                let subtotal = ownerEntries.reduce((sum, e) => sum + e.cost, 0);
                 const horses = [...new Set(ownerEntries.map(e => e.horse_name))];
                 
-                // Note: Bank holidays are detected server-side on invoice generation
-                // This is just showing the raw total; the invoice will apply bank holiday doubling
+                // Check if any entry is on a bank holiday
+                let hasBankHoliday = false;
+                const bankHolidayDates = [];
+                ownerEntries.forEach(entry => {
+                    // Check against known 2026 bank holidays
+                    const entryDate = new Date(entry.date).toISOString().split('T')[0];
+                    const bankHolidayList = [
+                        '2026-01-01', // New Year's Day
+                        '2026-04-10', // Good Friday
+                        '2026-04-13', // Easter Monday
+                        '2026-05-04', // Early May Bank Holiday
+                        '2026-05-25', // Spring Bank Holiday
+                        '2026-08-31', // Summer Bank Holiday
+                        '2026-12-25', // Christmas Day
+                        '2026-12-26', // Boxing Day
+                        '2026-12-24', // Christmas Eve
+                        '2026-12-31', // New Year's Eve
+                    ];
+                    if (bankHolidayList.includes(entryDate)) {
+                        hasBankHoliday = true;
+                        if (!bankHolidayDates.includes(entryDate)) {
+                            bankHolidayDates.push(entryDate);
+                        }
+                    }
+                });
+                
+                let total = subtotal;
+                let surchargeNote = '';
+                if (hasBankHoliday) {
+                    total = subtotal * 2;
+                    surchargeNote = '<br><strong style="color: #e74c3c;">Bank Holiday Double Rate Applied</strong>';
+                }
                 
                 html += `
                     <div style="margin-bottom: 2rem; padding: 1rem; background: #f9f9f9; border: 1px solid #ddd; border-radius: 4px;">
@@ -230,8 +260,7 @@
                             </tbody>
                         </table>
                         <div style="text-align: right; padding-top: 0.5rem; border-top: 2px solid #34495e;">
-                            <strong>Subtotal: £${total.toFixed(2)}</strong>
-                            <br><small style="color: #666;">Bank holidays are automatically doubled on final invoice</small>
+                            ${hasBankHoliday ? `<p style="margin: 0 0 0.5rem 0; font-size: 0.9rem;">Subtotal: £${subtotal.toFixed(2)}<br><strong style="color: #e74c3c;">Bank Holiday (×2): £${total.toFixed(2)}</strong></p>` : `<strong>Subtotal: £${total.toFixed(2)}</strong>`}
                         </div>
                     </div>
                 `;
