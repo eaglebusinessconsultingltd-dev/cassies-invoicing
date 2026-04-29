@@ -11,7 +11,7 @@ Features:
   • Owner/horse management
   • Pricing management
   
-Database: SQLite (automatically created)
+Database: PostgreSQL (Railway.app) or SQLite (local development)
 Run: python app.py
 Access: http://localhost:5000
 """
@@ -34,7 +34,23 @@ from reportlab.lib.enums import TA_LEFT, TA_RIGHT, TA_CENTER
 # ============================================================================
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///invoicing.db'
+
+# Database configuration: PostgreSQL (Railway) or SQLite (local)
+database_url = os.environ.get('DATABASE_URL')
+if database_url and database_url.startswith('postgres'):
+    # Fix for SQLAlchemy 1.4+ compatibility (Railway uses postgres://)
+    if database_url.startswith('postgres://'):
+        database_url = database_url.replace('postgres://', 'postgresql://', 1)
+    app.config['SQLALCHEMY_DATABASE_URI'] = database_url
+    app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+        'pool_size': 10,
+        'pool_recycle': 3600,
+        'pool_pre_ping': True,
+    }
+else:
+    # Local development: SQLite
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///invoicing.db'
+
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
