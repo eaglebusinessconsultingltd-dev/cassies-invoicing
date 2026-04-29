@@ -406,6 +406,7 @@ def get_work_entries():
         'service_name': entry.service.name,
         'minutes': entry.minutes,
         'cost': entry.calculate_cost(),
+        'surcharge_type': entry.surcharge_type,
     } for entry in entries])
 
 
@@ -743,6 +744,78 @@ def setup_default_user():
             'username': 'cassie',
             'password': 'cassie123'
         }), 201
+
+
+@app.route('/api/bank-holidays', methods=['GET'])
+@login_required
+def get_bank_holidays():
+    """Get all bank holidays."""
+    holidays = BankHoliday.query.order_by(BankHoliday.date).all()
+    return jsonify([{
+        'id': h.id,
+        'date': h.date.isoformat(),
+        'name': h.name,
+    } for h in holidays])
+
+
+@app.route('/api/bank-holidays', methods=['POST'])
+@login_required
+def add_bank_holiday():
+    """Add a new bank holiday."""
+    data = request.json
+    try:
+        date = datetime.strptime(data['date'], '%Y-%m-%d').date()
+        holiday = BankHoliday(date=date, name=data['name'])
+        db.session.add(holiday)
+        db.session.commit()
+        return jsonify({
+            'id': holiday.id,
+            'date': holiday.date.isoformat(),
+            'name': holiday.name,
+        }), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 400
+
+
+@app.route('/api/bank-holidays/<int:holiday_id>', methods=['DELETE'])
+@login_required
+def delete_bank_holiday(holiday_id):
+    """Delete a bank holiday."""
+    holiday = BankHoliday.query.get_or_404(holiday_id)
+    db.session.delete(holiday)
+    db.session.commit()
+    return '', 204
+
+
+@app.route('/api/bank-holidays/init-defaults', methods=['POST'])
+@login_required
+def init_bank_holidays():
+    """Reinitialize bank holidays with defaults (useful for updating)."""
+    # Clear existing
+    BankHoliday.query.delete()
+    
+    # Add defaults for 2026
+    bank_holidays = [
+        # UK Bank Holidays 2026
+        BankHoliday(date=datetime(2026, 1, 1).date(), name='New Year\'s Day'),
+        BankHoliday(date=datetime(2026, 4, 10).date(), name='Good Friday'),
+        BankHoliday(date=datetime(2026, 4, 13).date(), name='Easter Monday'),
+        BankHoliday(date=datetime(2026, 5, 4).date(), name='Early May Bank Holiday'),
+        BankHoliday(date=datetime(2026, 5, 25).date(), name='Spring Bank Holiday'),
+        BankHoliday(date=datetime(2026, 8, 31).date(), name='Summer Bank Holiday'),
+        BankHoliday(date=datetime(2026, 12, 25).date(), name='Christmas Day'),
+        BankHoliday(date=datetime(2026, 12, 26).date(), name='Boxing Day'),
+        # Special days (also warrant double charge)
+        BankHoliday(date=datetime(2026, 12, 24).date(), name='Christmas Eve'),
+        BankHoliday(date=datetime(2026, 12, 31).date(), name='New Year\'s Eve'),
+    ]
+    
+    for holiday in bank_holidays:
+        db.session.add(holiday)
+    
+    db.session.commit()
+    return jsonify({'message': f'Initialized {len(bank_holidays)} bank holidays'}), 201
 
 
 # ============================================================================
@@ -1225,6 +1298,10 @@ def generate_invoice_pdf(owner_id, month, year, work_entries):
                         service_name = "Field Service"
                     elif service_name == "Skip out only":
                         service_name = "Skip Out"
+                    
+                    # Add surcharge label if applicable
+                    if entry.surcharge_type == 'late_booking':
+                        service_name += ' (Late Charge)'
                     
                     price = f'£{entry.calculate_cost():.2f}'
                     row.append(service_name)

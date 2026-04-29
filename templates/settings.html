@@ -110,10 +110,38 @@
     <h2>Settings & Management</h2>
     <p>Manage owners, horses, and service pricing. All changes are saved immediately.</p>
     <div id="alert-container"></div>
+    
+    <!-- Tab Navigation -->
+    <div style="display: flex; gap: 0.5rem; margin: 1.5rem 0 1rem 0; flex-wrap: wrap; border-bottom: 2px solid #ddd;">
+        <button class="tab-btn active" data-tab="password" style="padding: 0.75rem 1rem; border: none; background: #3498db; color: white; border-bottom: 3px solid #2980b9; cursor: pointer;">Password</button>
+        <button class="tab-btn" data-tab="owners" style="padding: 0.75rem 1rem; border: none; background: #ecf0f1; cursor: pointer;">Owners</button>
+        <button class="tab-btn" data-tab="horses" style="padding: 0.75rem 1rem; border: none; background: #ecf0f1; cursor: pointer;">Horses</button>
+        <button class="tab-btn" data-tab="pricing" style="padding: 0.75rem 1rem; border: none; background: #ecf0f1; cursor: pointer;">Pricing</button>
+        <button class="tab-btn" data-tab="hold-pricing" style="padding: 0.75rem 1rem; border: none; background: #ecf0f1; cursor: pointer;">Hold Pricing</button>
+        <button class="tab-btn" data-tab="bank-holidays" style="padding: 0.75rem 1rem; border: none; background: #ecf0f1; cursor: pointer;">Bank Holidays</button>
+    </div>
 </div>
 
+<script>
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const tabName = this.dataset.tab;
+            document.querySelectorAll('[id^="tab-"]').forEach(el => el.style.display = 'none');
+            document.querySelectorAll('.tab-btn').forEach(el => {
+                el.style.background = '#ecf0f1';
+                el.style.color = 'black';
+                el.style.borderBottom = 'none';
+            });
+            document.getElementById(`tab-${tabName}`).style.display = 'block';
+            this.style.background = '#3498db';
+            this.style.color = 'white';
+            this.style.borderBottom = '3px solid #2980b9';
+        });
+    });
+</script>
+
 <!-- PASSWORD CHANGE -->
-<div class="card">
+<div id="tab-password" class="card" style="display: block;">
     <h2>Change Password</h2>
     <p>Update your login password.</p>
     
@@ -136,12 +164,13 @@
 </div>
 
 <!-- OWNERS MANAGEMENT -->
-<div class="card">
+<div id="tab-owners" class="card" style="display: none;">
     <h2>Owners</h2>
     
     <div class="form-group">
         <input type="text" id="new-owner-name" placeholder="Enter owner name">
         <button class="button" id="btn-add-owner">Add Owner</button>
+        <a href="/export/horses-owners.csv" class="button" style="text-decoration: none;">📥 Download CSV</a>
     </div>
     
     <div id="owners-list" class="loading">
@@ -151,7 +180,7 @@
 </div>
 
 <!-- HORSES MANAGEMENT -->
-<div class="card">
+<div id="tab-horses" class="card" style="display: none;">
     <h2>Horses</h2>
     
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
@@ -173,7 +202,7 @@
 </div>
 
 <!-- SERVICES MANAGEMENT -->
-<div class="card">
+<div id="tab-pricing" class="card" style="display: none;">
     <h2>Services & Pricing</h2>
     
     <div style="margin-bottom: 1.5rem;">
@@ -209,7 +238,7 @@
 </div>
 
 <!-- HOLD PRICING TIERS -->
-<div class="card">
+<div id="tab-hold-pricing" class="card" style="display: none;">
     <h2>Hold Pricing Tiers</h2>
     <p>Set tiered pricing for Hold (farrier/vet/other) service based on duration.</p>
     
@@ -222,6 +251,34 @@
             </tr>
         </thead>
         <tbody id="hold-pricing-list" class="loading">
+            <tr><td colspan="3"><div class="spinner"></div>Loading...</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- BANK HOLIDAYS -->
+<div id="tab-bank-holidays" class="card" style="display: none;">
+    <h2>Bank Holidays & Special Days</h2>
+    <p>Manage bank holiday dates for automatic double charging.</p>
+    
+    <div class="form-group">
+        <label for="new-holiday-date">Date</label>
+        <input type="date" id="new-holiday-date">
+        <label for="new-holiday-name">Name</label>
+        <input type="text" id="new-holiday-name" placeholder="e.g., Christmas Day">
+        <button class="button" id="btn-add-holiday">Add Holiday</button>
+        <button class="button secondary" id="btn-reset-holidays">Reset to 2026 Defaults</button>
+    </div>
+    
+    <table>
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Name</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody id="bank-holidays-list" class="loading">
             <tr><td colspan="3"><div class="spinner"></div>Loading...</td></tr>
         </tbody>
     </table>
@@ -704,5 +761,63 @@
             showAlert('Error: ' + error.message, 'error');
         }
     }
+    
+    // ========== BANK HOLIDAYS ==========
+    async function loadBankHolidays() {
+        try {
+            const response = await fetch('/api/bank-holidays');
+            const holidays = await response.json();
+            const tbody = document.getElementById('bank-holidays-list');
+            if (!tbody) return;
+            let html = '';
+            holidays.forEach(holiday => {
+                html += `<tr><td data-label="Date">${holiday.date}</td><td data-label="Name">${holiday.name}</td><td data-label="Action"><button class="button danger" onclick="deleteHoliday(${holiday.id})">Delete</button></td></tr>`;
+            });
+            tbody.innerHTML = html || '<tr><td colspan="3">No holidays set</td></tr>';
+        } catch (error) {}
+    }
+    
+    if (document.getElementById('btn-add-holiday')) {
+        document.getElementById('btn-add-holiday').addEventListener('click', async function() {
+            const date = document.getElementById('new-holiday-date').value;
+            const name = document.getElementById('new-holiday-name').value;
+            if (!date || !name) { showAlert('Please fill in all fields', 'error'); return; }
+            try {
+                const response = await fetch('/api/bank-holidays', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ date, name }),
+                });
+                if (response.ok) { showAlert('Holiday added');
+                    document.getElementById('new-holiday-date').value = '';
+                    document.getElementById('new-holiday-name').value = '';
+                    loadBankHolidays();
+                } else { const error = await response.json(); showAlert(error.error || 'Error', 'error'); }
+            } catch (error) { showAlert('Error: ' + error.message, 'error'); }
+        });
+    }
+    
+    if (document.getElementById('btn-reset-holidays')) {
+        document.getElementById('btn-reset-holidays').addEventListener('click', async function() {
+            if (!confirm('Reset to 2026 defaults?')) return;
+            try {
+                const response = await fetch('/api/bank-holidays/init-defaults', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                });
+                if (response.ok) { showAlert('Reset to defaults'); loadBankHolidays();
+                } else { const error = await response.json(); showAlert(error.error || 'Error', 'error'); }
+            } catch (error) { showAlert('Error: ' + error.message, 'error'); }
+        });
+    }
+    
+    async function deleteHoliday(id) {
+        if (!confirm('Delete?')) return;
+        try {
+            const response = await fetch(`/api/bank-holidays/${id}`, { method: 'DELETE' });
+            if (response.ok) { showAlert('Deleted'); loadBankHolidays(); }
+        } catch (error) { showAlert('Error: ' + error.message, 'error'); }
+    }
+    
+    loadBankHolidays();
+
 </script>
 {% endblock %}
