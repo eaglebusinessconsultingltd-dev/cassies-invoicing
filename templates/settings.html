@@ -116,8 +116,7 @@
         <button class="tab-btn active" data-tab="password" style="padding: 0.75rem 1rem; border: none; background: #3498db; color: white; border-bottom: 3px solid #2980b9; cursor: pointer;">Password</button>
         <button class="tab-btn" data-tab="owners" style="padding: 0.75rem 1rem; border: none; background: #ecf0f1; cursor: pointer;">Owners</button>
         <button class="tab-btn" data-tab="horses" style="padding: 0.75rem 1rem; border: none; background: #ecf0f1; cursor: pointer;">Horses</button>
-        <button class="tab-btn" data-tab="pricing" style="padding: 0.75rem 1rem; border: none; background: #ecf0f1; cursor: pointer;">Pricing</button>
-        <button class="tab-btn" data-tab="hold-pricing" style="padding: 0.75rem 1rem; border: none; background: #ecf0f1; cursor: pointer;">Hold Pricing</button>
+        <button class="tab-btn" data-tab="pricing" style="padding: 0.75rem 1rem; border: none; background: #ecf0f1; cursor: pointer;">Pricing & Hold</button>
         <button class="tab-btn" data-tab="bank-holidays" style="padding: 0.75rem 1rem; border: none; background: #ecf0f1; cursor: pointer;">Bank Holidays</button>
     </div>
 </div>
@@ -235,12 +234,11 @@
         <div class="spinner"></div>
         Loading services...
     </div>
-</div>
-
-<!-- HOLD PRICING TIERS -->
-<div id="tab-hold-pricing" class="card" style="display: none;">
-    <h2>Hold Pricing Tiers</h2>
-    <p>Set tiered pricing for Hold (farrier/vet/other) service based on duration.</p>
+    
+    <hr style="margin: 2rem 0; border: none; border-top: 1px solid #ddd;">
+    
+    <h3>Hold (Farrier/Vet/Other) Pricing Tiers</h3>
+    <p>Set tiered pricing for Hold service based on duration.</p>
     
     <table>
         <thead>
@@ -255,11 +253,15 @@
         </tbody>
     </table>
 </div>
-
 <!-- BANK HOLIDAYS -->
 <div id="tab-bank-holidays" class="card" style="display: none;">
     <h2>Bank Holidays & Special Days</h2>
-    <p>Manage bank holiday dates for automatic double charging.</p>
+    <p>Manage bank holiday dates for automatic double charging. Services on these dates will be doubled on invoices.</p>
+    
+    <div style="margin-bottom: 1.5rem; padding: 1rem; background: #e8f4f8; border-left: 4px solid #3498db; border-radius: 4px;">
+        <h4 style="margin-top: 0;">Add Future Years</h4>
+        <p>When a new year approaches, add UK bank holidays for that year. For reference, check <strong>gov.uk/bank-holidays</strong></p>
+    </div>
     
     <div class="form-group">
         <label for="new-holiday-date">Date</label>
@@ -267,7 +269,6 @@
         <label for="new-holiday-name">Name</label>
         <input type="text" id="new-holiday-name" placeholder="e.g., Christmas Day">
         <button class="button" id="btn-add-holiday">Add Holiday</button>
-        <button class="button secondary" id="btn-reset-holidays">Reset to 2026 Defaults</button>
     </div>
     
     <table>
@@ -696,10 +697,10 @@
     // ========== HOLD PRICING TIERS ==========
     
     const holdPricingData = {
-        'up_to_15': { label: 'Up to 15 minutes', price: 0 },
-        'up_to_30': { label: 'Up to 30 minutes', price: 0 },
-        'up_to_60': { label: 'Up to 60 minutes', price: 0 },
-        'over_60': { label: 'Each additional hour or part', price: 0 },
+        'up_to_15': { label: 'Up to 15 minutes', price: 5.0 },
+        'up_to_30': { label: 'Up to 30 minutes', price: 10.0 },
+        'up_to_60': { label: 'Up to 1 hour (60 min)', price: 15.0 },
+        'over_60': { label: 'Each additional hour or part', price: 15.0 },
     };
     
     async function loadHoldPricing() {
@@ -709,27 +710,31 @@
             
             // Update holdPricingData with fetched values
             Object.keys(holdPricingData).forEach(key => {
-                if (data[key] !== undefined) {
-                    holdPricingData[key].price = data[key];
+                if (data[key] !== undefined && data[key] !== null) {
+                    holdPricingData[key].price = parseFloat(data[key]);
                 }
             });
             
             renderHoldPricing();
         } catch (error) {
-            document.getElementById('hold-pricing-list').innerHTML = `<tr><td colspan="3"><p class="alert alert-error">Error loading Hold pricing</p></td></tr>`;
+            console.error('Error loading hold pricing:', error);
+            renderHoldPricing(); // Render with defaults
         }
     }
     
     function renderHoldPricing() {
         const container = document.getElementById('hold-pricing-list');
+        if (!container) return;
+        
         let html = '';
         
         Object.entries(holdPricingData).forEach(([key, data]) => {
+            const price = data.price || 0;
             html += `
                 <tr>
                     <td><strong>${data.label}</strong></td>
                     <td>
-                        £<input type="number" value="${data.price}" id="hold-price-${key}" step="0.01" min="0" style="width: 100px;">
+                        £<input type="number" value="${price}" id="hold-price-${key}" step="0.01" min="0" style="width: 100px;">
                     </td>
                     <td>
                         <button class="button" onclick="saveHoldPrice('${key}', parseFloat(document.getElementById('hold-price-${key}').value))">Save</button>
@@ -796,18 +801,6 @@
         });
     }
     
-    if (document.getElementById('btn-reset-holidays')) {
-        document.getElementById('btn-reset-holidays').addEventListener('click', async function() {
-            if (!confirm('Reset to 2026 defaults?')) return;
-            try {
-                const response = await fetch('/api/bank-holidays/init-defaults', {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                });
-                if (response.ok) { showAlert('Reset to defaults'); loadBankHolidays();
-                } else { const error = await response.json(); showAlert(error.error || 'Error', 'error'); }
-            } catch (error) { showAlert('Error: ' + error.message, 'error'); }
-        });
-    }
     
     async function deleteHoliday(id) {
         if (!confirm('Delete?')) return;

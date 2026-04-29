@@ -170,6 +170,29 @@ class WorkEntry(db.Model):
     
     def is_bank_holiday(self):
         """Check if the work entry date is a bank holiday."""
+        # First ensure bank holidays are initialized
+        if BankHoliday.query.first() is None:
+            # Initialize defaults if empty
+            bank_holidays = [
+                BankHoliday(date=datetime(2026, 1, 1).date(), name='New Year\'s Day'),
+                BankHoliday(date=datetime(2026, 4, 10).date(), name='Good Friday'),
+                BankHoliday(date=datetime(2026, 4, 13).date(), name='Easter Monday'),
+                BankHoliday(date=datetime(2026, 5, 4).date(), name='Early May Bank Holiday'),
+                BankHoliday(date=datetime(2026, 5, 25).date(), name='Spring Bank Holiday'),
+                BankHoliday(date=datetime(2026, 8, 31).date(), name='Summer Bank Holiday'),
+                BankHoliday(date=datetime(2026, 12, 25).date(), name='Christmas Day'),
+                BankHoliday(date=datetime(2026, 12, 26).date(), name='Boxing Day'),
+                BankHoliday(date=datetime(2026, 12, 24).date(), name='Christmas Eve'),
+                BankHoliday(date=datetime(2026, 12, 31).date(), name='New Year\'s Eve'),
+            ]
+            for holiday in bank_holidays:
+                db.session.add(holiday)
+            try:
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
+        
+        # Now check if this date is a holiday
         holiday = BankHoliday.query.filter_by(date=self.date).first()
         return holiday is not None
 
@@ -655,6 +678,16 @@ def get_invoice_pdf(invoice_id):
         as_attachment=True,
         download_name=f'{invoice.owner.name}_{invoice.month}_{invoice.year}.pdf'
     )
+
+
+@app.route('/api/invoices/<int:invoice_id>', methods=['DELETE'])
+@login_required
+def delete_invoice(invoice_id):
+    """Delete an invoice."""
+    invoice = Invoice.query.get_or_404(invoice_id)
+    db.session.delete(invoice)
+    db.session.commit()
+    return '', 204
 
 
 @app.route('/api/invoices/download-all', methods=['GET'])
