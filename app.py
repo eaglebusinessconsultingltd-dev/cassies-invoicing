@@ -408,6 +408,7 @@ def add_work_entry():
 
 
 @app.route('/api/work-entries/<int:entry_id>', methods=['DELETE'])
+@login_required
 def delete_work_entry(entry_id):
     """Delete a work entry."""
     entry = WorkEntry.query.get_or_404(entry_id)
@@ -1275,9 +1276,20 @@ def generate_invoice_pdf(owner_id, month, year, work_entries):
     elements.append(table)
     elements.append(Spacer(1, 0.4*cm))
     
-    # Grand total
-    total = sum(entry.calculate_cost() for entry in work_entries)
-    elements.append(Paragraph(f'<b>TOTAL: £{total:.2f}</b>', styles['Normal']))
+    # Grand total - with day surcharge handling
+    subtotal = sum(entry.calculate_cost() for entry in work_entries)
+    
+    # Check if there are any day surcharges and apply them
+    has_double_charge = any(entry.day_surcharge_code == 'BH' for entry in work_entries)
+    
+    total = subtotal
+    surcharge_note = ""
+    if has_double_charge:
+        # Double the total
+        total = subtotal * 2
+        surcharge_note = " (Double Charge)"
+    
+    elements.append(Paragraph(f'<b>TOTAL: £{total:.2f}{surcharge_note}</b>', styles['Normal']))
     elements.append(Spacer(1, 0.4*cm))
     
     # Payment details
