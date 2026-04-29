@@ -933,6 +933,35 @@ def delete_service(service_id):
 
 
 # ============================================================================
+# API ROUTES - USER ACCOUNT
+# ============================================================================
+
+@app.route('/api/change-password', methods=['POST'])
+@login_required
+def change_password():
+    """Change current user's password."""
+    data = request.get_json()
+    current_password = data.get('current_password')
+    new_password = data.get('new_password')
+    
+    if not current_password or not new_password:
+        return jsonify({'error': 'Both passwords are required'}), 400
+    
+    user = current_user
+    
+    if not user.check_password(current_password):
+        return jsonify({'error': 'Current password is incorrect'}), 401
+    
+    if len(new_password) < 6:
+        return jsonify({'error': 'Password must be at least 6 characters'}), 400
+    
+    user.set_password(new_password)
+    db.session.commit()
+    
+    return jsonify({'message': 'Password changed successfully'}), 200
+
+
+# ============================================================================
 # PDF GENERATION
 # ============================================================================
 

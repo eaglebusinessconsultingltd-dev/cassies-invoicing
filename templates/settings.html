@@ -112,6 +112,29 @@
     <div id="alert-container"></div>
 </div>
 
+<!-- PASSWORD CHANGE -->
+<div class="card">
+    <h2>Change Password</h2>
+    <p>Update your login password.</p>
+    
+    <div class="form-group">
+        <label for="current-password">Current Password</label>
+        <input type="password" id="current-password" placeholder="Enter your current password">
+    </div>
+    
+    <div class="form-group">
+        <label for="new-password">New Password</label>
+        <input type="password" id="new-password" placeholder="Enter new password">
+    </div>
+    
+    <div class="form-group">
+        <label for="confirm-password">Confirm New Password</label>
+        <input type="password" id="confirm-password" placeholder="Confirm new password">
+    </div>
+    
+    <button class="button success" id="btn-change-password" style="width: 100%;">Change Password</button>
+</div>
+
 <!-- OWNERS MANAGEMENT -->
 <div class="card">
     <h2>Owners</h2>
@@ -217,6 +240,53 @@
         container.appendChild(alert);
         setTimeout(() => alert.remove(), 5000);
     }
+    
+    // ========== PASSWORD CHANGE ==========
+    
+    document.getElementById('btn-change-password').addEventListener('click', async function() {
+        const currentPassword = document.getElementById('current-password').value;
+        const newPassword = document.getElementById('new-password').value;
+        const confirmPassword = document.getElementById('confirm-password').value;
+        
+        if (!currentPassword || !newPassword || !confirmPassword) {
+            showAlert('All password fields are required', 'error');
+            return;
+        }
+        
+        if (newPassword !== confirmPassword) {
+            showAlert('New passwords do not match', 'error');
+            return;
+        }
+        
+        if (newPassword.length < 6) {
+            showAlert('Password must be at least 6 characters', 'error');
+            return;
+        }
+        
+        try {
+            const response = await fetch('/api/change-password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    current_password: currentPassword,
+                    new_password: newPassword
+                }),
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok) {
+                showAlert('Password changed successfully!');
+                document.getElementById('current-password').value = '';
+                document.getElementById('new-password').value = '';
+                document.getElementById('confirm-password').value = '';
+            } else {
+                showAlert(data.error || 'Error changing password', 'error');
+            }
+        } catch (error) {
+            showAlert('Error: ' + error.message, 'error');
+        }
+    });
     
     // ========== OWNERS ==========
     
