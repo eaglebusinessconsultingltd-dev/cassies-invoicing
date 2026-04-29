@@ -37,7 +37,7 @@ app = Flask(__name__)
 
 # Database configuration: PostgreSQL (Railway) or SQLite (local)
 database_url = os.environ.get('DATABASE_URL')
-if database_url and database_url.startswith('postgres'):
+if database_url:
     # Fix for SQLAlchemy 1.4+ compatibility (Railway uses postgres://)
     if database_url.startswith('postgres://'):
         database_url = database_url.replace('postgres://', 'postgresql://', 1)
@@ -47,9 +47,11 @@ if database_url and database_url.startswith('postgres'):
         'pool_recycle': 3600,
         'pool_pre_ping': True,
     }
+    print(f'✅ Using PostgreSQL: {database_url[:30]}...')
 else:
     # Local development: SQLite
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///invoicing.db'
+    print('✅ Using SQLite (local development)')
 
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
