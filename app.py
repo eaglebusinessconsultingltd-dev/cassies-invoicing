@@ -829,7 +829,7 @@ def init_bank_holidays():
     # Clear existing
     BankHoliday.query.delete()
     
-    # Add defaults for 2026
+    # Add defaults for 2026, 2027, 2028
     bank_holidays = [
         # UK Bank Holidays 2026
         BankHoliday(date=datetime(2026, 1, 1).date(), name='New Year\'s Day'),
@@ -840,9 +840,28 @@ def init_bank_holidays():
         BankHoliday(date=datetime(2026, 8, 31).date(), name='Summer Bank Holiday'),
         BankHoliday(date=datetime(2026, 12, 25).date(), name='Christmas Day'),
         BankHoliday(date=datetime(2026, 12, 26).date(), name='Boxing Day'),
-        # Special days (also warrant double charge)
         BankHoliday(date=datetime(2026, 12, 24).date(), name='Christmas Eve'),
         BankHoliday(date=datetime(2026, 12, 31).date(), name='New Year\'s Eve'),
+        
+        # UK Bank Holidays 2027
+        BankHoliday(date=datetime(2027, 1, 1).date(), name='New Year\'s Day'),
+        BankHoliday(date=datetime(2027, 3, 26).date(), name='Good Friday'),
+        BankHoliday(date=datetime(2027, 3, 29).date(), name='Easter Monday'),
+        BankHoliday(date=datetime(2027, 5, 3).date(), name='Early May Bank Holiday'),
+        BankHoliday(date=datetime(2027, 5, 31).date(), name='Spring Bank Holiday'),
+        BankHoliday(date=datetime(2027, 8, 30).date(), name='Summer Bank Holiday'),
+        BankHoliday(date=datetime(2027, 12, 27).date(), name='Christmas Day (substitute day)'),
+        BankHoliday(date=datetime(2027, 12, 28).date(), name='Boxing Day (substitute day)'),
+        
+        # UK Bank Holidays 2028
+        BankHoliday(date=datetime(2028, 1, 3).date(), name='New Year\'s Day (substitute day)'),
+        BankHoliday(date=datetime(2028, 4, 14).date(), name='Good Friday'),
+        BankHoliday(date=datetime(2028, 4, 17).date(), name='Easter Monday'),
+        BankHoliday(date=datetime(2028, 5, 1).date(), name='Early May Bank Holiday'),
+        BankHoliday(date=datetime(2028, 5, 29).date(), name='Spring Bank Holiday'),
+        BankHoliday(date=datetime(2028, 8, 28).date(), name='Summer Bank Holiday'),
+        BankHoliday(date=datetime(2028, 12, 25).date(), name='Christmas Day'),
+        BankHoliday(date=datetime(2028, 12, 26).date(), name='Boxing Day'),
     ]
     
     for holiday in bank_holidays:
