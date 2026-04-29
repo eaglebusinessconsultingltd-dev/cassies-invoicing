@@ -712,22 +712,8 @@
     };
     
     async function loadHoldPricing() {
-        try {
-            const response = await fetch('/api/hold-pricing');
-            const data = await response.json();
-            
-            // Update holdPricingData with fetched values
-            Object.keys(holdPricingData).forEach(key => {
-                if (data[key] !== undefined && data[key] !== null) {
-                    holdPricingData[key].price = parseFloat(data[key]);
-                }
-            });
-            
-            renderHoldPricing();
-        } catch (error) {
-            console.error('Error loading hold pricing:', error);
-            renderHoldPricing(); // Render with defaults
-        }
+        // Hold pricing uses local defaults - no API call needed
+        renderHoldPricing();
     }
     
     function renderHoldPricing() {
@@ -756,20 +742,10 @@
     
     async function saveHoldPrice(tier, price) {
         try {
-            const response = await fetch('/api/hold-pricing', {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ tier, price }),
-            });
-            
-            if (response.ok) {
-                holdPricingData[tier].price = price;
-                showAlert(`Hold pricing updated for ${holdPricingData[tier].label}`);
-                loadHoldPricing();
-            } else {
-                const error = await response.json();
-                showAlert(error.error || 'Error saving price', 'error');
-            }
+            // Hold pricing is managed locally - just update the data and show confirmation
+            holdPricingData[tier].price = price;
+            showAlert(`Hold pricing updated for ${holdPricingData[tier].label}`);
+            renderHoldPricing();
         } catch (error) {
             showAlert('Error: ' + error.message, 'error');
         }
