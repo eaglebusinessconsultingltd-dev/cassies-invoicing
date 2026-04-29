@@ -477,6 +477,7 @@ def delete_work_entry(entry_id):
 
 
 @app.route('/api/invoices', methods=['GET'])
+@login_required
 def get_invoices():
     """Get invoice history."""
     invoices = Invoice.query.order_by(Invoice.created_at.desc()).all()
