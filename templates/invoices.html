@@ -46,10 +46,6 @@
         <div class="spinner"></div>
         Loading invoice history...
     </div>
-    
-    <div style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid #ddd;">
-        <button class="button" id="btn-download-all" style="background-color: #27ae60;">Download All Invoices for Selected Month</button>
-    </div>
 </div>
 
 <script>
@@ -150,48 +146,6 @@
         }
     });
     
-    // Download all invoices
-    document.getElementById('btn-download-all').addEventListener('click', async function() {
-        const month = monthSelect.value;
-        const year = yearSelect.value;
-        
-        if (!month || !year) {
-            showAlert('Please select a month and year', 'error');
-            return;
-        }
-        
-        this.disabled = true;
-        this.textContent = 'Downloading...';
-        
-        try {
-            // Fetch ZIP file with all invoices
-            const response = await fetch(`/api/invoices/download-all?month=${parseInt(month) + 1}&year=${year}`);
-            
-            if (!response.ok) {
-                showAlert('Error downloading invoices', 'error');
-                return;
-            }
-            
-            // Create blob and download
-            const blob = await response.blob();
-            const url = window.URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = `invoices_${monthNames[month]}_${year}.zip`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            window.URL.revokeObjectURL(url);
-            
-            showAlert('Invoices downloaded successfully', 'success');
-        } catch (error) {
-            showAlert('Error downloading invoices: ' + error.message, 'error');
-        } finally {
-            this.disabled = false;
-            this.textContent = 'Download All Invoices';
-        }
-    });
-    
     // Preview
     document.getElementById('btn-preview').addEventListener('click', async function() {
         const month = monthSelect.value;
@@ -250,7 +204,6 @@
                                     <th style="padding: 0.5rem; text-align: left;">Date</th>
                                     <th style="padding: 0.5rem; text-align: left;">Horse</th>
                                     <th style="padding: 0.5rem; text-align: left;">Service</th>
-                                    <th style="padding: 0.5rem; text-align: left;">Duration</th>
                                     <th style="padding: 0.5rem; text-align: right;">Cost</th>
                                 </tr>
                             </thead>
@@ -260,13 +213,11 @@
                 ownerEntries.sort((a, b) => new Date(a.date) - new Date(b.date)).forEach(entry => {
                     const dateObj = new Date(entry.date);
                     const dateStr = dateObj.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
-                    const durationStr = entry.service_code === 'H' ? `${entry.minutes} min` : '';
                     html += `
                         <tr>
                             <td style="padding: 0.5rem;">${dateStr}</td>
                             <td style="padding: 0.5rem;">${entry.horse_name}</td>
                             <td style="padding: 0.5rem;">${entry.service_name}</td>
-                            <td style="padding: 0.5rem;">${durationStr}</td>
                             <td style="padding: 0.5rem; text-align: right;">£${entry.cost.toFixed(2)}</td>
                         </tr>
                     `;
@@ -312,10 +263,10 @@
                 
                 html += `
                     <tr>
-                        <td>${invoice.owner_name}</td>
-                        <td>${invoice.month} ${invoice.year}</td>
-                        <td>${dateStr}</td>
-                        <td><a href="/api/invoices/${invoice.id}/pdf" class="button" download>Download PDF</a></td>
+                        <td data-label="Owner">${invoice.owner_name}</td>
+                        <td data-label="Month">${invoice.month} ${invoice.year}</td>
+                        <td data-label="Created">${dateStr}</td>
+                        <td data-label="Action"><a href="/api/invoices/${invoice.id}/pdf" class="button" download>Download PDF</a></td>
                     </tr>
                 `;
             });

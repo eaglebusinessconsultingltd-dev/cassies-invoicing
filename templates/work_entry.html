@@ -14,16 +14,17 @@
     
     <div class="grid">
         <div>
-            <label for="work-horse">Horse <span style="color: red;">*</span></label>
-            <select id="work-horse" required>
-                <option value="">-- Select Horse --</option>
+            <label for="work-owner">Owner <span style="color: red;">*</span></label>
+            <select id="work-owner" required>
+                <option value="">-- Select Owner --</option>
             </select>
         </div>
         
         <div>
-            <label for="work-owner">Owner <span style="color: red;"></span></label>
-            <input type="text" id="work-owner" readonly placeholder="Auto-populated from horse">
-            <input type="hidden" id="work-owner-id">
+            <label for="work-horse">Horse <span style="color: red;">*</span></label>
+            <select id="work-horse" required>
+                <option value="">-- Select Horse --</option>
+            </select>
         </div>
     </div>
     
@@ -103,35 +104,17 @@
     // Load initial data
     async function loadInitialData() {
         try {
-            // Load owners and horses
+            // Load owners
             const ownerResponse = await fetch('/api/owners');
             owners = await ownerResponse.json();
             
-            const horseResponse = await fetch('/api/horses');
-            const horses_data = await horseResponse.json();
-            
-            // Build a map: horseId -> ownerId for quick lookup
-            const horseToOwnerMap = {};
+            const ownerSelect = document.getElementById('work-owner');
             owners.forEach(owner => {
-                if (owner.horses) {
-                    owner.horses.forEach(horse => {
-                        horseToOwnerMap[horse.id] = owner.id;
-                    });
-                }
-            });
-            
-            // Populate horse dropdown with ALL horses
-            const horseSelect = document.getElementById('work-horse');
-            horses_data.forEach(horse => {
                 const option = document.createElement('option');
-                option.value = horse.id;
-                option.textContent = horse.name;
-                option.dataset.ownerId = horse.owner_id;  // Store owner ID
-                option.dataset.ownerName = horse.owner_name;  // Store owner name
-                horseSelect.appendChild(option);
+                option.value = owner.id;
+                option.textContent = owner.name;
+                ownerSelect.appendChild(option);
             });
-            
-            // Don't populate owner dropdown - it's now auto-filled from horse selection
             
             // Load services
             const serviceResponse = await fetch('/api/services');
@@ -162,25 +145,22 @@
         setTimeout(() => alert.remove(), 5000);
     }
     
-    // Handle horse selection - auto-populate owner
-    document.getElementById('work-horse').addEventListener('change', function() {
-        const selectedHorse = this.options[this.selectedIndex];
-        const ownerId = selectedHorse.dataset.ownerId;
-        const ownerName = selectedHorse.dataset.ownerName;
-        
-        if (ownerName) {
-            document.getElementById('work-owner').value = ownerName;
-            // Store owner ID in a hidden field for form submission
-            document.getElementById('work-owner-id').value = ownerId;
-        } else {
-            document.getElementById('work-owner').value = '';
-            document.getElementById('work-owner-id').value = '';
-        }
-    });
-    
-    // Handle owner selection (kept for backwards compatibility, but horse selection drives it now)
+    // Handle owner selection
     document.getElementById('work-owner').addEventListener('change', function() {
-        // Owner is now auto-set by horse selection, read-only field
+        const selectedOwnerId = parseInt(this.value);
+        const selectedOwner = owners.find(o => o.id === selectedOwnerId);
+        
+        const horseSelect = document.getElementById('work-horse');
+        horseSelect.innerHTML = '<option value="">-- Select Horse --</option>';
+        
+        if (selectedOwner) {
+            selectedOwner.horses.forEach(horse => {
+                const option = document.createElement('option');
+                option.value = horse.id;
+                option.textContent = horse.name;
+                horseSelect.appendChild(option);
+            });
+        }
     });
     
     // Handle service selection
@@ -345,16 +325,15 @@
         let total = 0;
         todayEntries.forEach((entry, idx) => {
             const row = document.createElement('tr');
-            // Show minutes for Hold services (code 'H'), blank for others
-            const durationStr = entry.service_code === 'H' ? (entry.minutes ? `${entry.minutes} min` : '-') : '';
+            const durationStr = entry.minutes ? `${entry.minutes} min` : '-';
             
             row.innerHTML = `
-                <td>${entry.date}</td>
-                <td>${entry.horse_name}</td>
-                <td>${entry.service_name}</td>
-                <td>${durationStr}</td>
-                <td>£${entry.cost.toFixed(2)}</td>
-                <td><button style="background-color: #dc3545; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 14px;" onclick="deleteEntry(${entry.id})">Delete</button></td>
+                <td data-label="Date">${entry.date}</td>
+                <td data-label="Horse">${entry.horse_name}</td>
+                <td data-label="Service">${entry.service_name}</td>
+                <td data-label="Duration">${durationStr}</td>
+                <td data-label="Cost">£${entry.cost.toFixed(2)}</td>
+                <td data-label="Action"><button class="button danger" onclick="deleteEntry(${entry.id})">Delete</button></td>
             `;
             
             body.appendChild(row);
@@ -397,11 +376,6 @@
             const response = await fetch(`/api/work-entries?start=${start_str}&end=${end_str}`);
             const entries = await response.json();
             
-            // DEBUG: Log first entry to see what we're getting
-            if (entries.length > 0) {
-                console.log('DEBUG - First entry:', entries[0]);
-            }
-            
             workEntries = entries;
             
             // Group by date and owner
@@ -418,7 +392,7 @@
             
             // Build history table
             const historyEl = document.getElementById('work-history');
-            let html = '<table><thead><tr><th>Date</th><th>Owner</th><th>Horse</th><th>Service</th><th>Duration</th><th>Cost</th><th>Action</th></tr></thead><tbody>';
+            let html = '<table><thead><tr><th>Date</th><th>Owner</th><th>Horse</th><th>Service</th><th>Duration</th><th>Cost</th></tr></thead><tbody>';
             
             Object.keys(grouped).sort().reverse().forEach(date => {
                 Object.keys(grouped[date]).sort().forEach(owner => {
@@ -426,13 +400,12 @@
                         // Show duration for Hold services (code 'H'), blank otherwise
                         const durationText = entry.service_code === 'H' ? `${entry.minutes} min` : '';
                         html += `<tr>
-                            <td>${idx === 0 ? date : ''}</td>
-                            <td>${idx === 0 ? owner : ''}</td>
-                            <td>${entry.horse_name}</td>
-                            <td>${entry.service_name}</td>
-                            <td>${durationText}</td>
-                            <td>£${entry.cost.toFixed(2)}</td>
-                            <td><button onclick="deleteWorkEntry(${entry.id})" style="background-color: #dc3545; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 14px;">Delete</button></td>
+                            <td data-label="Date">${idx === 0 ? date : ''}</td>
+                            <td data-label="Owner">${idx === 0 ? owner : ''}</td>
+                            <td data-label="Horse">${entry.horse_name}</td>
+                            <td data-label="Service">${entry.service_name}</td>
+                            <td data-label="Duration">${durationText}</td>
+                            <td data-label="Cost">£${entry.cost.toFixed(2)}</td>
                         </tr>`;
                     });
                 });
@@ -441,31 +414,11 @@
             html += '</tbody></table>';
             historyEl.innerHTML = html || '<p>No work entries yet this month.</p>';
         } catch (error) {
-            console.error('Error in loadWorkHistory:', error);
             document.getElementById('work-history').innerHTML = '<p class="alert alert-error">Error loading history.</p>';
         }
     }
     
     // Initialize
     loadInitialData();
-    
-    // Delete work entry
-    async function deleteWorkEntry(entryId) {
-        if (!confirm('Are you sure you want to delete this work entry?')) {
-            return;
-        }
-        try {
-            const response = await fetch(`/api/work-entries/${entryId}`, {
-                method: 'DELETE'
-            });
-            if (response.ok) {
-                loadWorkHistory();
-            } else {
-                alert('Error deleting work entry');
-            }
-        } catch (error) {
-            alert('Error deleting work entry: ' + error);
-        }
-    }
 </script>
 {% endblock %}

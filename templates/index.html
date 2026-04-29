@@ -54,7 +54,7 @@
                 const price = service.requires_time 
                     ? `Variable (from £${service.base_price.toFixed(2)})`
                     : `£${service.base_price.toFixed(2)}`;
-                html += `<tr><td><strong>${service.code}</strong></td><td>${service.name}</td><td>${price}</td></tr>`;
+                html += `<tr><td data-label="Code"><strong>${service.code}</strong></td><td data-label="Service">${service.name}</td><td data-label="Price">${price}</td></tr>`;
             });
             html += '</tbody></table>';
             
