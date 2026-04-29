@@ -144,7 +144,6 @@ class WorkEntry(db.Model):
     is_day_surcharge = db.Column(db.Boolean, default=False)  # True if this is a day-level surcharge (BH, XE, NYE)
     day_surcharge_code = db.Column(db.String(10), default=None)  # 'BH', 'XE', or 'NYE'
     
-    horse = db.relationship('Horse', backref='work_entries')
     service = db.relationship('Service', backref='work_entries')
     
     def __repr__(self):
