@@ -1336,7 +1336,13 @@ def generate_invoice_pdf(owner_id, month, year, work_entries):
                     if entry.surcharge_type == 'late_booking':
                         service_name += ' (Late Charge)'
                     
-                    price = f'£{entry.calculate_cost():.2f}'
+                    # Calculate cost and apply bank holiday doubling if applicable
+                    cost = entry.calculate_cost()
+                    if entry.is_bank_holiday():
+                        cost *= 2
+                        service_name += ' (Bank Holiday Double Rate)'
+                    
+                    price = f'£{cost:.2f}'
                     row.append(service_name)
                     row.append(price)
                 else:
@@ -1348,7 +1354,10 @@ def generate_invoice_pdf(owner_id, month, year, work_entries):
     subtotal_row = ['Subtotal']
     for horse in horses:
         horse_entries = [e for e in work_entries if e.horse.name == horse]
-        horse_total = sum(e.calculate_cost() for e in horse_entries)
+        horse_total = sum(
+            e.calculate_cost() * 2 if e.is_bank_holiday() else e.calculate_cost()
+            for e in horse_entries
+        )
         subtotal_row.append('')  # Empty service cell
         subtotal_row.append(f'£{horse_total:.2f}')
     table_data.append(subtotal_row)
@@ -1421,20 +1430,13 @@ def generate_invoice_pdf(owner_id, month, year, work_entries):
     elements.append(table)
     elements.append(Spacer(1, 0.4*cm))
     
-    # Grand total - with automatic bank holiday detection
-    subtotal = sum(entry.calculate_cost() for entry in work_entries)
+    # Grand total - line items already have bank holiday doubling applied
+    total = sum(
+        e.calculate_cost() * 2 if e.is_bank_holiday() else e.calculate_cost()
+        for e in work_entries
+    )
     
-    # Check if ANY entry date is a bank holiday
-    has_bank_holiday = any(entry.is_bank_holiday() for entry in work_entries)
-    
-    total = subtotal
-    surcharge_note = ""
-    if has_bank_holiday:
-        # Double the total for bank holidays
-        total = subtotal * 2
-        surcharge_note = " (Bank Holiday Double Rate)"
-    
-    elements.append(Paragraph(f'<b>TOTAL: £{total:.2f}{surcharge_note}</b>', styles['Normal']))
+    elements.append(Paragraph(f'<b>TOTAL: £{total:.2f}</b>', styles['Normal']))
     elements.append(Spacer(1, 0.4*cm))
     
     # Payment details
