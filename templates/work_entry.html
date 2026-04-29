@@ -96,13 +96,18 @@
 
 <!-- Work history -->
 <div class="card">
-    <h2>Work History (This Month)</h2>
+    <h2>Work History</h2>
     
     <div style="margin-bottom: 1rem;">
-        <label for="history-month-filter">Filter by Month:</label>
-        <select id="history-month-filter">
-            <option value="">-- Current Month --</option>
-        </select>
+        <label for="history-month">Select Month:</label>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+            <select id="history-month" style="grid-column: 1;">
+                <!-- Populated by JavaScript -->
+            </select>
+            <select id="history-year" style="grid-column: 2;">
+                <!-- Populated by JavaScript -->
+            </select>
+        </div>
     </div>
     
     <div id="work-history" class="loading">
@@ -407,21 +412,13 @@
     // Load work history
     async function loadWorkHistory() {
         try {
-            // Get selected month from filter, or use current month
-            const filterSelect = document.getElementById('history-month-filter');
-            let start_date, end_date;
+            // Get selected month and year
+            const selectedMonth = parseInt(document.getElementById('history-month').value);
+            const selectedYear = parseInt(document.getElementById('history-year').value);
             
-            if (filterSelect.value) {
-                // Parse the selected value (format: YYYY-MM)
-                const [year, month] = filterSelect.value.split('-');
-                start_date = new Date(parseInt(year), parseInt(month) - 1, 1);
-                end_date = new Date(parseInt(year), parseInt(month), 0);
-            } else {
-                // Current month
-                const today = new Date();
-                start_date = new Date(today.getFullYear(), today.getMonth(), 1);
-                end_date = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-            }
+            // Calculate start and end dates
+            const start_date = new Date(selectedYear, selectedMonth - 1, 1);
+            const end_date = new Date(selectedYear, selectedMonth, 0);
             
             const start_str = start_date.toISOString().split('T')[0];
             const end_str = end_date.toISOString().split('T')[0];
@@ -430,28 +427,6 @@
             const entries = await response.json();
             
             workEntries = entries;
-            
-            // Populate month filter dropdown if empty
-            if (filterSelect.options.length === 1) {
-                // Get all unique months from entries
-                const months = new Set();
-                entries.forEach(entry => {
-                    const date = new Date(entry.date);
-                    const yearMonth = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-                    months.add(yearMonth);
-                });
-                
-                // Sort months in descending order (newest first)
-                Array.from(months).sort().reverse().forEach(yearMonth => {
-                    const [year, month] = yearMonth.split('-');
-                    const date = new Date(parseInt(year), parseInt(month) - 1);
-                    const monthName = date.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
-                    const option = document.createElement('option');
-                    option.value = yearMonth;
-                    option.textContent = monthName;
-                    filterSelect.appendChild(option);
-                });
-            }
             
             // Group by date and owner
             const grouped = {};
@@ -488,18 +463,50 @@
             });
             
             html += '</tbody></table>';
-            historyEl.innerHTML = html || '<p>No work entries for this period.</p>';
+            historyEl.innerHTML = html || '<p>No work entries for this month.</p>';
         } catch (error) {
             document.getElementById('work-history').innerHTML = '<p class="alert alert-error">Error loading history.</p>';
         }
     }
     
-    // Handle month filter change
-    document.getElementById('history-month-filter').addEventListener('change', function() {
-        loadWorkHistory();
-    });
+    // Initialize month and year dropdowns
+    function initializeMonthYearSelectors() {
+        const monthSelect = document.getElementById('history-month');
+        const yearSelect = document.getElementById('history-year');
+        const today = new Date();
+        
+        // Populate months (1-12)
+        for (let i = 1; i <= 12; i++) {
+            const option = document.createElement('option');
+            option.value = i;
+            const monthName = new Date(2024, i - 1).toLocaleDateString('en-GB', { month: 'long' });
+            option.textContent = monthName;
+            if (i === today.getMonth() + 1) {
+                option.selected = true;
+            }
+            monthSelect.appendChild(option);
+        }
+        
+        // Populate years (current year, 5 previous, and 5 future years)
+        for (let i = -5; i <= 5; i++) {
+            const year = today.getFullYear() + i;
+            const option = document.createElement('option');
+            option.value = year;
+            option.textContent = year;
+            if (i === 0) {
+                option.selected = true;
+            }
+            yearSelect.appendChild(option);
+        }
+        
+        // Add event listeners
+        monthSelect.addEventListener('change', loadWorkHistory);
+        yearSelect.addEventListener('change', loadWorkHistory);
+    }
     
     // Initialize
     loadInitialData();
+    initializeMonthYearSelectors();
+    loadWorkHistory();
 </script>
 {% endblock %}
