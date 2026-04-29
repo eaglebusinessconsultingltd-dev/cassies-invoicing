@@ -139,19 +139,33 @@ class WorkEntry(db.Model):
     minutes = db.Column(db.Integer, default=0)  # Only used for time-based services (Hold)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
+    # Surcharge fields
+    surcharge_type = db.Column(db.String(20), default=None)  # 'late_booking' for individual service charges
+    is_day_surcharge = db.Column(db.Boolean, default=False)  # True if this is a day-level surcharge (BH, XE, NYE)
+    day_surcharge_code = db.Column(db.String(10), default=None)  # 'BH', 'XE', or 'NYE'
+    
+    horse = db.relationship('Horse', backref='work_entries')
     service = db.relationship('Service', backref='work_entries')
     
     def __repr__(self):
         return f'<WorkEntry {self.horse.name} - {self.service.code} on {self.date}>'
     
     def calculate_cost(self):
-        """Calculate cost based on service type and duration."""
+        """Calculate cost based on service type, duration, and surcharges."""
+        base_cost = 0
+        
         if self.service.requires_time:
             # Hold pricing - use the global calculate_hold_price function
-            return calculate_hold_price(self.minutes)
+            base_cost = calculate_hold_price(self.minutes)
         else:
             # Fixed price
-            return self.service.base_price
+            base_cost = self.service.base_price
+        
+        # Apply service-level late booking surcharge (double the cost)
+        if self.surcharge_type == 'late_booking':
+            return base_cost * 2
+        
+        return base_cost
 
 
 class Invoice(db.Model):
@@ -197,6 +211,7 @@ def init_default_data():
         Service(code='FMO', name='Full Muck Out', base_price=12.0, requires_time=False),
         Service(code='FS', name='Field Service (Feed, Rug, Muzzle, Fly spray)', base_price=3.0, requires_time=False),
         Service(code='H', name='Holding (farrier/vet/other)', base_price=5.0, requires_time=True),  # Time-based
+        Service(code='BH', name='Bank Holiday Surcharge (100% of day total)', base_price=0.0, requires_time=False),  # Manual entry
     ]
     
     for service in services:
@@ -346,7 +361,7 @@ def get_work_entries():
 
 @app.route('/api/work-entries', methods=['POST'])
 def add_work_entry():
-    """Add a new work entry."""
+    """Add a new work entry with optional surcharges."""
     data = request.json
     
     entry = WorkEntry(
@@ -354,6 +369,8 @@ def add_work_entry():
         horse_id=data['horse_id'],
         service_id=data['service_id'],
         minutes=data.get('minutes', 0),
+        surcharge_type=data.get('surcharge_type'),  # 'late_booking' or None
+        day_surcharge_code=data.get('day_surcharge_code'),  # 'BH', 'XE', 'NYE', or None
     )
     
     db.session.add(entry)
@@ -370,6 +387,8 @@ def add_work_entry():
         'service_name': entry.service.name,
         'minutes': entry.minutes,
         'cost': entry.calculate_cost(),
+        'surcharge_type': entry.surcharge_type,
+        'day_surcharge_code': entry.day_surcharge_code,
     }), 201
 
 
@@ -959,6 +978,31 @@ def change_password():
     db.session.commit()
     
     return jsonify({'message': 'Password changed successfully'}), 200
+
+
+@app.route('/export/horses-owners.csv')
+@login_required
+def export_horses_owners():
+    """Export all horses and owners as CSV."""
+    import csv
+    from io import StringIO
+    
+    # Query all horses with owners
+    horses = db.session.query(Horse.name, Owner.name).outerjoin(Owner).order_by(Owner.name, Horse.name).all()
+    
+    # Create CSV
+    output = StringIO()
+    writer = csv.writer(output)
+    writer.writerow(['Horse', 'Owner'])
+    for horse_name, owner_name in horses:
+        writer.writerow([horse_name, owner_name or ''])
+    
+    # Return as downloadable file
+    output.seek(0)
+    return output.getvalue(), 200, {
+        'Content-Disposition': 'attachment; filename=horses_and_owners.csv',
+        'Content-Type': 'text/csv'
+    }
 
 
 # ============================================================================

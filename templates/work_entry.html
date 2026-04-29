@@ -47,6 +47,41 @@
         <strong>Cost: £<span id="cost-amount">0.00</span></strong>
     </div>
     
+    <!-- Surcharge Options -->
+    <div style="margin: 1.5rem 0; padding: 1rem; background: #fff3cd; border-left: 4px solid #ffc107; border-radius: 4px;">
+        <h3 style="margin-top: 0; color: #856404;">Surcharges</h3>
+        
+        <label style="display: flex; align-items: center; margin-bottom: 0.75rem; cursor: pointer;">
+            <input type="checkbox" id="surcharge-late-booking" style="margin-right: 0.75rem; width: auto;">
+            <span><strong>Late Booking (Double Charge)</strong> — Applied to this individual service</span>
+        </label>
+        <p style="margin-left: 1.75rem; margin-top: -0.5rem; font-size: 0.85rem; color: #666;">
+            Check if client booked after cutoff time. Service cost will be doubled.
+        </p>
+        
+        <hr style="margin: 1rem 0; border: none; border-top: 1px solid #ddd;">
+        
+        <h4 style="color: #856404; margin-top: 1rem; margin-bottom: 0.5rem;">Day Surcharges (Bank Holidays, Xmas Eve, New Year's Eve)</h4>
+        <p style="margin: 0 0 0.75rem 0; font-size: 0.85rem; color: #666;">
+            Check ONE of these if the work is on a bank holiday or special day. This applies to ALL owners that day.
+        </p>
+        
+        <label style="display: flex; align-items: center; margin-bottom: 0.5rem; cursor: pointer;">
+            <input type="radio" name="day-surcharge" id="surcharge-bh" value="BH" style="margin-right: 0.75rem; width: auto;">
+            <span><strong>BH</strong> — Bank Holiday (100% surcharge on day total)</span>
+        </label>
+        
+        <label style="display: flex; align-items: center; margin-bottom: 0.5rem; cursor: pointer;">
+            <input type="radio" name="day-surcharge" id="surcharge-xe" value="XE" style="margin-right: 0.75rem; width: auto;">
+            <span><strong>XE</strong> — Christmas Eve (100% surcharge on day total)</span>
+        </label>
+        
+        <label style="display: flex; align-items: center; margin-bottom: 0.5rem; cursor: pointer;">
+            <input type="radio" name="day-surcharge" id="surcharge-nye" value="NYE" style="margin-right: 0.75rem; width: auto;">
+            <span><strong>NYE</strong> — New Year's Eve (100% surcharge on day total)</span>
+        </label>
+    </div>
+    
     <button class="button" id="btn-add-service">Add Service</button>
     <button class="button secondary" id="btn-clear">Clear Form</button>
 </div>
@@ -255,6 +290,10 @@
         const serviceId = parseInt(document.getElementById('work-service').value);
         const minutes = parseInt(document.getElementById('work-minutes').value) || 0;
         
+        // Get surcharge options
+        const isLateBooking = document.getElementById('surcharge-late-booking').checked;
+        const daySurchargeCode = document.querySelector('input[name="day-surcharge"]:checked')?.value;
+        
         if (!date || !horseId || !serviceId) {
             showAlert('Please fill in all required fields', 'error');
             return;
@@ -271,6 +310,8 @@
                     horse_id: horseId,
                     service_id: serviceId,
                     minutes: minutes,
+                    surcharge_type: isLateBooking ? 'late_booking' : null,
+                    day_surcharge_code: daySurchargeCode,
                 }),
             });
             
@@ -278,11 +319,17 @@
                 const entry = await response.json();
                 workEntries.push(entry);
                 
-                showAlert(`Added ${entry.service_name} for ${entry.horse_name} on ${entry.date}`, 'success');
+                let alertMsg = `Added ${entry.service_name} for ${entry.horse_name} on ${entry.date}`;
+                if (isLateBooking) alertMsg += ' [Late Booking - Doubled]';
+                if (daySurchargeCode) alertMsg += ` [${daySurchargeCode}]`;
+                
+                showAlert(alertMsg, 'success');
                 
                 // Reset form
                 document.getElementById('work-service').value = '';
                 document.getElementById('work-minutes').value = '';
+                document.getElementById('surcharge-late-booking').checked = false;
+                document.querySelectorAll('input[name="day-surcharge"]').forEach(r => r.checked = false);
                 document.getElementById('cost-preview').style.display = 'none';
                 
                 // Update UI
