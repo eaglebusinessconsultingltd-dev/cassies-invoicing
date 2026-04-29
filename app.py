@@ -164,7 +164,14 @@ class WorkEntry(db.Model):
         if self.surcharge_type == 'late_booking':
             return base_cost * 2
         
+        # Check if date is a bank holiday - if so, mark it for doubling at invoice level
+        # This is handled in invoice generation, not here
         return base_cost
+    
+    def is_bank_holiday(self):
+        """Check if the work entry date is a bank holiday."""
+        holiday = BankHoliday.query.filter_by(date=self.date).first()
+        return holiday is not None
 
 
 class Invoice(db.Model):
@@ -179,6 +186,15 @@ class Invoice(db.Model):
     
     def __repr__(self):
         return f'<Invoice {self.owner.name} - {self.month} {self.year}>'
+
+
+class BankHoliday(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    date = db.Column(db.Date, nullable=False, unique=True)
+    name = db.Column(db.String(100), nullable=False)
+    
+    def __repr__(self):
+        return f'<BankHoliday {self.date} - {self.name}>'
 
 
 # ============================================================================
@@ -226,7 +242,6 @@ def init_default_data():
         Service(code='FMO', name='Full Muck Out', base_price=12.0, requires_time=False),
         Service(code='FS', name='Field Service (Feed, Rug, Muzzle, Fly spray)', base_price=3.0, requires_time=False),
         Service(code='H', name='Holding (farrier/vet/other)', base_price=5.0, requires_time=True),  # Time-based
-        Service(code='BH', name='Bank Holiday Surcharge (100% of day total)', base_price=0.0, requires_time=False),  # Manual entry
     ]
     
     for service in services:
@@ -287,6 +302,26 @@ def init_default_data():
         for horse_name in horse_names:
             horse = Horse(name=horse_name, owner_id=owner.id)
             db.session.add(horse)
+    
+    # Initialize bank holidays (UK 2026 + special days)
+    # Check if already initialized
+    if db.session.query(BankHoliday).first() is None:
+        bank_holidays = [
+            # UK Bank Holidays 2026
+            BankHoliday(date=datetime(2026, 1, 1).date(), name='New Year\'s Day'),
+            BankHoliday(date=datetime(2026, 4, 10).date(), name='Good Friday'),
+            BankHoliday(date=datetime(2026, 4, 13).date(), name='Easter Monday'),
+            BankHoliday(date=datetime(2026, 5, 4).date(), name='Early May Bank Holiday'),
+            BankHoliday(date=datetime(2026, 5, 25).date(), name='Spring Bank Holiday'),
+            BankHoliday(date=datetime(2026, 8, 31).date(), name='Summer Bank Holiday'),
+            BankHoliday(date=datetime(2026, 12, 25).date(), name='Christmas Day'),
+            BankHoliday(date=datetime(2026, 12, 26).date(), name='Boxing Day'),
+            # Special days (also warrant double charge)
+            BankHoliday(date=datetime(2026, 12, 24).date(), name='Christmas Eve'),
+            BankHoliday(date=datetime(2026, 12, 31).date(), name='New Year\'s Eve'),
+        ]
+        for holiday in bank_holidays:
+            db.session.add(holiday)
     
     db.session.commit()
 
@@ -1276,18 +1311,18 @@ def generate_invoice_pdf(owner_id, month, year, work_entries):
     elements.append(table)
     elements.append(Spacer(1, 0.4*cm))
     
-    # Grand total - with day surcharge handling
+    # Grand total - with automatic bank holiday detection
     subtotal = sum(entry.calculate_cost() for entry in work_entries)
     
-    # Check if there are any day surcharges and apply them
-    has_double_charge = any(entry.day_surcharge_code == 'BH' for entry in work_entries)
+    # Check if ANY entry date is a bank holiday
+    has_bank_holiday = any(entry.is_bank_holiday() for entry in work_entries)
     
     total = subtotal
     surcharge_note = ""
-    if has_double_charge:
-        # Double the total
+    if has_bank_holiday:
+        # Double the total for bank holidays
         total = subtotal * 2
-        surcharge_note = " (Double Charge)"
+        surcharge_note = " (Bank Holiday Double Rate)"
     
     elements.append(Paragraph(f'<b>TOTAL: £{total:.2f}{surcharge_note}</b>', styles['Normal']))
     elements.append(Spacer(1, 0.4*cm))

@@ -194,14 +194,8 @@
                 let total = ownerEntries.reduce((sum, e) => sum + e.cost, 0);
                 const horses = [...new Set(ownerEntries.map(e => e.horse_name))];
                 
-                // Check for double charge and apply it
-                const hasDoubleCharge = ownerEntries.some(e => e.day_surcharge_code === 'BH');
-                
-                let surchargeNote = '';
-                if (hasDoubleCharge) {
-                    total = total * 2;  // Double the total
-                    surchargeNote = ' (Double Charge)';
-                }
+                // Note: Bank holidays are detected server-side on invoice generation
+                // This is just showing the raw total; the invoice will apply bank holiday doubling
                 
                 html += `
                     <div style="margin-bottom: 2rem; padding: 1rem; background: #f9f9f9; border: 1px solid #ddd; border-radius: 4px;">
@@ -236,7 +230,8 @@
                             </tbody>
                         </table>
                         <div style="text-align: right; padding-top: 0.5rem; border-top: 2px solid #34495e;">
-                            <strong>Total: £${total.toFixed(2)}${surchargeNote}</strong>
+                            <strong>Subtotal: £${total.toFixed(2)}</strong>
+                            <br><small style="color: #666;">Bank holidays are automatically doubled on final invoice</small>
                         </div>
                     </div>
                 `;
