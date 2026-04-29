@@ -1,6 +1,111 @@
 {% extends "base.html" %}
 
 {% block content %}
+<style>
+    /* Mobile-friendly table styles */
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.9rem;
+    }
+    
+    table thead {
+        background: #2c3e50;
+        color: white;
+    }
+    
+    table th, table td {
+        padding: 0.75rem;
+        text-align: left;
+        border-bottom: 1px solid #ddd;
+    }
+    
+    table input[type="text"],
+    table input[type="number"] {
+        width: 100%;
+        padding: 0.5rem;
+        font-size: 1rem;
+        box-sizing: border-box;
+    }
+    
+    table button {
+        padding: 0.5rem 1rem;
+        margin: 0.25rem 0;
+        font-size: 0.85rem;
+        white-space: nowrap;
+        width: 100%;
+    }
+    
+    /* Mobile: stack table columns vertically */
+    @media (max-width: 768px) {
+        table, table thead, table tbody, table tr, table td {
+            display: block;
+            width: 100%;
+        }
+        
+        table thead {
+            display: none;
+        }
+        
+        table tr {
+            margin-bottom: 1.5rem;
+            border: 2px solid #ddd;
+            padding: 1rem;
+            border-radius: 4px;
+            background: #f9f9f9;
+        }
+        
+        table td {
+            padding: 0.75rem 0;
+            border: none;
+            word-break: break-word;
+        }
+        
+        table td:before {
+            content: attr(data-label);
+            font-weight: bold;
+            color: #2c3e50;
+            display: block;
+            margin-bottom: 0.5rem;
+            font-size: 0.85rem;
+        }
+        
+        table input:before,
+        table button:before {
+            display: none;
+        }
+    }
+    
+    /* Form inputs */
+    .form-group {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+    }
+    
+    .form-group input {
+        flex: 1;
+        min-width: 200px;
+    }
+    
+    .form-group button {
+        flex: 0 1 auto;
+    }
+    
+    @media (max-width: 480px) {
+        .form-group {
+            flex-direction: column;
+        }
+        
+        .form-group input,
+        .form-group button {
+            width: 100%;
+            min-width: 100%;
+        }
+    }
+</style>
+
 <div class="card">
     <h2>Settings & Management</h2>
     <p>Manage owners, horses, and service pricing. All changes are saved immediately.</p>
@@ -12,8 +117,8 @@
     <h2>Owners</h2>
     
     <div class="form-group">
-        <input type="text" id="new-owner-name" placeholder="Enter owner name" style="width: 70%;">
-        <button class="button" id="btn-add-owner" style="width: 28%; margin-left: 2%;">Add Owner</button>
+        <input type="text" id="new-owner-name" placeholder="Enter owner name">
+        <button class="button" id="btn-add-owner">Add Owner</button>
     </div>
     
     <div id="owners-list" class="loading">
@@ -26,7 +131,7 @@
 <div class="card">
     <h2>Horses</h2>
     
-    <div class="grid" style="margin-bottom: 1.5rem;">
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
         <div>
             <label for="new-horse-owner">Owner</label>
             <select id="new-horse-owner" required></select>
@@ -80,6 +185,25 @@
     </div>
 </div>
 
+<!-- HOLD PRICING TIERS -->
+<div class="card">
+    <h2>Hold Pricing Tiers</h2>
+    <p>Set tiered pricing for Hold (farrier/vet/other) service based on duration.</p>
+    
+    <table>
+        <thead>
+            <tr>
+                <th>Duration</th>
+                <th>Price (£)</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody id="hold-pricing-list" class="loading">
+            <tr><td colspan="3"><div class="spinner"></div>Loading...</td></tr>
+        </tbody>
+    </table>
+</div>
+
 <script>
     let owners = [];
     let horses = [];
@@ -128,11 +252,11 @@
             const horseCount = owner.horses.length;
             html += `
                 <tr>
-                    <td>
-                        <input type="text" value="${owner.name}" id="owner-name-${owner.id}" style="width: 100%;">
+                    <td data-label="Name">
+                        <input type="text" value="${owner.name}" id="owner-name-${owner.id}">
                     </td>
-                    <td>${horseCount}</td>
-                    <td>
+                    <td data-label="Horses">${horseCount}</td>
+                    <td data-label="Actions">
                         <button class="button" onclick="saveOwner(${owner.id}, document.getElementById('owner-name-${owner.id}').value)">Save</button>
                         <button class="button danger" onclick="deleteOwner(${owner.id})">Delete</button>
                     </td>
@@ -238,13 +362,13 @@
         horses.forEach(horse => {
             html += `
                 <tr>
-                    <td>${horse.name}</td>
-                    <td>
-                        <select id="owner-for-horse-${horse.id}" style="width: 100%;">
+                    <td data-label="Name">${horse.name}</td>
+                    <td data-label="Owner">
+                        <select id="owner-for-horse-${horse.id}">
                             <option value="">-- Select --</option>
                         </select>
                     </td>
-                    <td>
+                    <td data-label="Actions">
                         <button class="button" onclick="updateHorseOwner(${horse.id}, document.getElementById('owner-for-horse-${horse.id}').value)">Change Owner</button>
                         <button class="button danger" onclick="deleteHorse(${horse.id})">Delete</button>
                     </td>
@@ -364,15 +488,15 @@
             const type = service.requires_time ? 'Time-based' : 'Fixed';
             html += `
                 <tr>
-                    <td><strong>${service.code}</strong></td>
-                    <td>
-                        <input type="text" value="${service.name}" id="service-name-${service.id}" style="width: 100%;">
+                    <td data-label="Code"><strong>${service.code}</strong></td>
+                    <td data-label="Name">
+                        <input type="text" value="${service.name}" id="service-name-${service.id}">
                     </td>
-                    <td>
-                        £<input type="number" value="${service.base_price}" id="service-price-${service.id}" step="0.01" min="0" style="width: 80px;">
+                    <td data-label="Price">
+                        £<input type="number" value="${service.base_price}" id="service-price-${service.id}" step="0.01" min="0">
                     </td>
-                    <td>${type}</td>
-                    <td>
+                    <td data-label="Type">${type}</td>
+                    <td data-label="Actions">
                         <button class="button" onclick="saveService(${service.id}, document.getElementById('service-name-${service.id}').value, parseFloat(document.getElementById('service-price-${service.id}').value))">Save</button>
                     </td>
                 </tr>
@@ -440,5 +564,75 @@
     loadOwners();
     loadHorses();
     loadServices();
+    loadHoldPricing();
+    
+    // ========== HOLD PRICING TIERS ==========
+    
+    const holdPricingData = {
+        'up_to_15': { label: 'Up to 15 minutes', price: 0 },
+        'up_to_30': { label: 'Up to 30 minutes', price: 0 },
+        'up_to_60': { label: 'Up to 60 minutes', price: 0 },
+        'over_60': { label: 'Each additional hour or part', price: 0 },
+    };
+    
+    async function loadHoldPricing() {
+        try {
+            const response = await fetch('/api/hold-pricing');
+            const data = await response.json();
+            
+            // Update holdPricingData with fetched values
+            Object.keys(holdPricingData).forEach(key => {
+                if (data[key] !== undefined) {
+                    holdPricingData[key].price = data[key];
+                }
+            });
+            
+            renderHoldPricing();
+        } catch (error) {
+            document.getElementById('hold-pricing-list').innerHTML = `<tr><td colspan="3"><p class="alert alert-error">Error loading Hold pricing</p></td></tr>`;
+        }
+    }
+    
+    function renderHoldPricing() {
+        const container = document.getElementById('hold-pricing-list');
+        let html = '';
+        
+        Object.entries(holdPricingData).forEach(([key, data]) => {
+            html += `
+                <tr>
+                    <td><strong>${data.label}</strong></td>
+                    <td>
+                        £<input type="number" value="${data.price}" id="hold-price-${key}" step="0.01" min="0" style="width: 100px;">
+                    </td>
+                    <td>
+                        <button class="button" onclick="saveHoldPrice('${key}', parseFloat(document.getElementById('hold-price-${key}').value))">Save</button>
+                    </td>
+                </tr>
+            `;
+        });
+        
+        container.innerHTML = html;
+    }
+    
+    async function saveHoldPrice(tier, price) {
+        try {
+            const response = await fetch('/api/hold-pricing', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ tier, price }),
+            });
+            
+            if (response.ok) {
+                holdPricingData[tier].price = price;
+                showAlert(`Hold pricing updated for ${holdPricingData[tier].label}`);
+                loadHoldPricing();
+            } else {
+                const error = await response.json();
+                showAlert(error.error || 'Error saving price', 'error');
+            }
+        } catch (error) {
+            showAlert('Error: ' + error.message, 'error');
+        }
+    }
 </script>
 {% endblock %}
