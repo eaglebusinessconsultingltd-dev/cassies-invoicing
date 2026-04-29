@@ -120,6 +120,7 @@
     let owners = [];
     let services = [];
     let workEntries = [];
+    let bankHolidayDates = [];  // Store bank holiday dates for checking
     
     // Set today's date as default
     const today = new Date();
@@ -158,6 +159,10 @@
                 serviceSelect.appendChild(option);
             });
             
+            // Load bank holidays
+            const holidayResponse = await fetch('/api/bank-holidays');
+            const holidays = await holidayResponse.json();
+            bankHolidayDates = holidays.map(h => h.date);  // Store as array of date strings (YYYY-MM-DD)
             loadWorkHistory();
         } catch (error) {
             showAlert('Error loading data: ' + error.message, 'error');
@@ -368,22 +373,34 @@
         servicesCard.style.display = 'block';
         body.innerHTML = '';
         
+        // Check if today is a bank holiday
+        const todayDate = document.getElementById('work-date').value;
+        const isBankHoliday = bankHolidayDates.includes(todayDate);
+        
         let total = 0;
         todayEntries.forEach((entry, idx) => {
             const row = document.createElement('tr');
             const durationStr = entry.minutes ? `${entry.minutes} min` : '-';
             
+            // Apply bank holiday doubling to individual entry cost for display
+            let displayCost = entry.cost;
+            let costLabel = entry.service_name;
+            if (isBankHoliday) {
+                displayCost *= 2;
+                costLabel += ' (Bank Holiday Double Rate)';
+            }
+            
             row.innerHTML = `
                 <td data-label="Date">${entry.date}</td>
                 <td data-label="Horse">${entry.horse_name}</td>
-                <td data-label="Service">${entry.service_name}</td>
+                <td data-label="Service">${costLabel}</td>
                 <td data-label="Duration">${durationStr}</td>
-                <td data-label="Cost">£${entry.cost.toFixed(2)}</td>
+                <td data-label="Cost">£${displayCost.toFixed(2)}</td>
                 <td data-label="Action"><button class="button danger" onclick="deleteEntry(${entry.id})">Delete</button></td>
             `;
             
             body.appendChild(row);
-            total += entry.cost;
+            total += displayCost;
         });
         
         dailyTotal.textContent = total.toFixed(2);
