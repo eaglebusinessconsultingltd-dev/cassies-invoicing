@@ -188,6 +188,22 @@ class Invoice(db.Model):
 
 with app.app_context():
     db.create_all()
+    
+    # Auto-migrate: Add surcharge columns if they don't exist
+    try:
+        from sqlalchemy import text
+        with db.engine.connect() as conn:
+            # Add surcharge columns if they don't exist
+            conn.execute(text("""
+                ALTER TABLE work_entry
+                ADD COLUMN IF NOT EXISTS surcharge_type VARCHAR(20) DEFAULT NULL,
+                ADD COLUMN IF NOT EXISTS is_day_surcharge BOOLEAN DEFAULT FALSE,
+                ADD COLUMN IF NOT EXISTS day_surcharge_code VARCHAR(10) DEFAULT NULL;
+            """))
+            conn.commit()
+    except Exception as e:
+        # Columns might already exist, that's ok
+        pass
 
 # ============================================================================
 # UTILITY FUNCTIONS
