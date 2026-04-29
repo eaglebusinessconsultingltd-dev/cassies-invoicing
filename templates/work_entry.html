@@ -407,17 +407,51 @@
     // Load work history
     async function loadWorkHistory() {
         try {
-            const today = new Date();
-            const month_start = new Date(today.getFullYear(), today.getMonth(), 1);
-            const month_end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+            // Get selected month from filter, or use current month
+            const filterSelect = document.getElementById('history-month-filter');
+            let start_date, end_date;
             
-            const start_str = month_start.toISOString().split('T')[0];
-            const end_str = month_end.toISOString().split('T')[0];
+            if (filterSelect.value) {
+                // Parse the selected value (format: YYYY-MM)
+                const [year, month] = filterSelect.value.split('-');
+                start_date = new Date(parseInt(year), parseInt(month) - 1, 1);
+                end_date = new Date(parseInt(year), parseInt(month), 0);
+            } else {
+                // Current month
+                const today = new Date();
+                start_date = new Date(today.getFullYear(), today.getMonth(), 1);
+                end_date = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+            }
+            
+            const start_str = start_date.toISOString().split('T')[0];
+            const end_str = end_date.toISOString().split('T')[0];
             
             const response = await fetch(`/api/work-entries?start=${start_str}&end=${end_str}`);
             const entries = await response.json();
             
             workEntries = entries;
+            
+            // Populate month filter dropdown if empty
+            if (filterSelect.options.length === 1) {
+                // Get all unique months from entries
+                const months = new Set();
+                entries.forEach(entry => {
+                    const date = new Date(entry.date);
+                    const yearMonth = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+                    months.add(yearMonth);
+                });
+                
+                // Sort months in descending order (newest first)
+                Array.from(months).sort().reverse().forEach(yearMonth => {
+                    const [year, month] = yearMonth.split('-');
+                    const date = new Date(parseInt(year), parseInt(month) - 1);
+                    const monthName = date.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+                    const option = document.createElement('option');
+                    option.value = yearMonth;
+                    option.textContent = monthName;
+                    filterSelect.appendChild(option);
+                });
+            }
             
             // Group by date and owner
             const grouped = {};
@@ -454,11 +488,16 @@
             });
             
             html += '</tbody></table>';
-            historyEl.innerHTML = html || '<p>No work entries yet this month.</p>';
+            historyEl.innerHTML = html || '<p>No work entries for this period.</p>';
         } catch (error) {
             document.getElementById('work-history').innerHTML = '<p class="alert alert-error">Error loading history.</p>';
         }
     }
+    
+    // Handle month filter change
+    document.getElementById('history-month-filter').addEventListener('change', function() {
+        loadWorkHistory();
+    });
     
     // Initialize
     loadInitialData();
