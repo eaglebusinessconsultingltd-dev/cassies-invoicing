@@ -429,6 +429,10 @@
         <a href="/work-entry" class="nav-link" data-page="work-entry">Add Work</a>
         <a href="/invoices" class="nav-link" data-page="invoices">Invoices</a>
         <a href="/settings" class="nav-link" data-page="settings">Settings</a>
+        <span style="margin-left: auto; display: flex; align-items: center; padding: 0 1rem; color: white; font-size: 0.9rem;">
+            👤 {{ current_user.username if current_user.is_authenticated else 'Guest' }}
+        </span>
+        <a href="/logout" class="nav-link" style="color: #f39c12;">Logout</a>
     </nav>
     
     <div class="container">

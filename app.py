@@ -16,8 +16,10 @@ Run: python app.py
 Access: http://localhost:5000
 """
 
-from flask import Flask, render_template, request, jsonify, send_file
+from flask import Flask, render_template, request, jsonify, send_file, redirect, url_for, session
 from flask_sqlalchemy import SQLAlchemy
+from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
+from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta, date
 from io import BytesIO
 import json
@@ -54,8 +56,14 @@ else:
     print('✅ Using SQLite (local development)')
 
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-key-change-in-production')
 
 db = SQLAlchemy(app)
+
+# Initialize Flask-Login
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'login'
 
 # Create tables on app startup (runs with Gunicorn too!)
 with app.app_context():
@@ -64,6 +72,33 @@ with app.app_context():
 # ============================================================================
 # DATABASE MODELS
 # ============================================================================
+
+class User(UserMixin, db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    password_hash = db.Column(db.String(200), nullable=False)
+    
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
+    
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
+    
+    def __repr__(self):
+        return f'<User {self.username}>'
+
+
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
+
+
+@app.before_request
+def check_login():
+    """Require login for all routes except /login"""
+    if request.path.startswith('/api/') and not current_user.is_authenticated:
+        return jsonify({'error': 'Unauthorized'}), 401
+
 
 class Owner(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -589,28 +624,65 @@ def download_all_invoices():
 
 
 # ============================================================================
+# ROUTES - AUTHENTICATION
+# ============================================================================
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    """Login page."""
+    if current_user.is_authenticated:
+        return redirect(url_for('index'))
+    
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        
+        user = User.query.filter_by(username=username).first()
+        
+        if user and user.check_password(password):
+            login_user(user, remember=True)
+            return redirect(url_for('index'))
+        else:
+            return render_template('login.html', error='Invalid username or password')
+    
+    return render_template('login.html')
+
+
+@app.route('/logout')
+@login_required
+def logout():
+    """Logout and redirect to login."""
+    logout_user()
+    return redirect(url_for('login'))
+
+
+# ============================================================================
 # ROUTES - PAGES
 # ============================================================================
 
 @app.route('/')
+@login_required
 def index():
     """Home page."""
     return render_template('index.html')
 
 
 @app.route('/work-entry')
+@login_required
 def work_entry_page():
     """Work entry page."""
     return render_template('work_entry.html')
 
 
 @app.route('/invoices')
+@login_required
 def invoices_page():
     """Invoices page."""
     return render_template('invoices.html')
 
 
 @app.route('/settings')
+@login_required
 def settings_page():
     """Settings page (owners, horses, services, pricing)."""
     return render_template('settings.html')
@@ -1176,6 +1248,15 @@ def server_error(error):
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
+        
+        # Create default user if it doesn't exist
+        if not User.query.filter_by(username='cassie').first():
+            default_user = User(username='cassie')
+            default_user.set_password('cassie123')
+            db.session.add(default_user)
+            db.session.commit()
+            print('✅ Created default user: cassie / cassie123')
+        
         init_default_data()
     
     print('Starting Cassie\'s Invoicing System...')
