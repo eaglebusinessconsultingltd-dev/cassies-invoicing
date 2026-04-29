@@ -55,6 +55,10 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
 
+# Create tables on app startup (runs with Gunicorn too!)
+with app.app_context():
+    db.create_all()
+
 # ============================================================================
 # DATABASE MODELS
 # ============================================================================
