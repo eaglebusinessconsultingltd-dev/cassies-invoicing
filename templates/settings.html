@@ -116,7 +116,7 @@
         <button class="tab-btn active" data-tab="password" style="padding: 0.75rem 1rem; border: none; background: #3498db; color: white; border-bottom: 3px solid #2980b9; cursor: pointer;">Password</button>
         <button class="tab-btn" data-tab="owners" style="padding: 0.75rem 1rem; border: none; background: #ecf0f1; cursor: pointer;">Owners</button>
         <button class="tab-btn" data-tab="horses" style="padding: 0.75rem 1rem; border: none; background: #ecf0f1; cursor: pointer;">Horses</button>
-        <button class="tab-btn" data-tab="pricing" style="padding: 0.75rem 1rem; border: none; background: #ecf0f1; cursor: pointer;">Pricing & Hold</button>
+        <button class="tab-btn" data-tab="pricing" style="padding: 0.75rem 1rem; border: none; background: #ecf0f1; cursor: pointer;">Pricing</button>
         <button class="tab-btn" data-tab="bank-holidays" style="padding: 0.75rem 1rem; border: none; background: #ecf0f1; cursor: pointer;">Bank Holidays</button>
     </div>
 </div>
@@ -611,8 +611,16 @@
             return;
         }
         
+        // Filter out Hold (H) service - it's managed in Hold Pricing section
+        const regularServices = services.filter(s => s.code !== 'H');
+        
+        if (regularServices.length === 0) {
+            container.innerHTML = '<p>No regular services yet.</p>';
+            return;
+        }
+        
         let html = '<table><thead><tr><th>Code</th><th>Name</th><th>Price</th><th>Type</th><th>Actions</th></tr></thead><tbody>';
-        services.forEach(service => {
+        regularServices.forEach(service => {
             const type = service.requires_time ? 'Time-based' : 'Fixed';
             html += `
                 <tr>
