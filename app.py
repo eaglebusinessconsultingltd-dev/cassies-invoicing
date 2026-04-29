@@ -656,6 +656,25 @@ def logout():
     return redirect(url_for('login'))
 
 
+@app.route('/setup-default-user')
+def setup_default_user():
+    """Create default user if it doesn't exist. Remove this after setup!"""
+    with app.app_context():
+        if User.query.filter_by(username='cassie').first():
+            return jsonify({'message': 'Default user already exists'}), 200
+        
+        default_user = User(username='cassie')
+        default_user.set_password('cassie123')
+        db.session.add(default_user)
+        db.session.commit()
+        
+        return jsonify({
+            'message': 'Default user created successfully',
+            'username': 'cassie',
+            'password': 'cassie123'
+        }), 201
+
+
 # ============================================================================
 # ROUTES - PAGES
 # ============================================================================
