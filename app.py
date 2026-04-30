@@ -403,20 +403,40 @@ def get_services():
 
 @app.route('/api/work-entries', methods=['GET'])
 def get_work_entries():
-    """Get work entries for a given date range."""
+    """Get work entries for a given month/year or date range."""
+    month = request.args.get('month')
+    year = request.args.get('year')
     start_date_str = request.args.get('start')
     end_date_str = request.args.get('end')
     
-    if not start_date_str or not end_date_str:
+    # If month/year provided, use those
+    if month and year:
+        try:
+            month = int(month)
+            year = int(year)
+            
+            # Get all entries for this month/year
+            entries = WorkEntry.query.filter(
+                db.extract('year', WorkEntry.date) == year,
+                db.extract('month', WorkEntry.date) == month
+            ).all()
+        except (ValueError, TypeError):
+            return jsonify([])
+    
+    # Otherwise use date range if provided
+    elif start_date_str and end_date_str:
+        try:
+            start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+            end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+            
+            entries = WorkEntry.query.filter(
+                WorkEntry.date >= start_date,
+                WorkEntry.date <= end_date
+            ).all()
+        except ValueError:
+            return jsonify([])
+    else:
         return jsonify([])
-    
-    start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
-    end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
-    
-    entries = WorkEntry.query.filter(
-        WorkEntry.date >= start_date,
-        WorkEntry.date <= end_date
-    ).all()
     
     return jsonify([{
         'id': entry.id,

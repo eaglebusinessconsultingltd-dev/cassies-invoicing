@@ -440,16 +440,7 @@
             const selectedMonth = parseInt(document.getElementById('history-month').value);  // 1-based (1=Jan, 4=Apr, 5=May)
             const selectedYear = parseInt(document.getElementById('history-year').value);
             
-            // Calculate start and end dates
-            // selectedMonth is 1-based, so we need to convert properly
-            const monthIndex = selectedMonth - 1;  // Convert to 0-based
-            const start_date = new Date(selectedYear, monthIndex, 1);  // First day of selected month
-            const end_date = new Date(selectedYear, monthIndex + 1, 0);  // Last day of selected month
-            
-            const start_str = start_date.toISOString().split('T')[0];
-            const end_str = end_date.toISOString().split('T')[0];
-            
-            const response = await fetch(`/api/work-entries?start=${start_str}&end=${end_str}`);
+            const response = await fetch(`/api/work-entries?month=${selectedMonth}&year=${selectedYear}`);
             const entries = await response.json();
             
             workEntries = entries;
