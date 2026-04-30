@@ -381,14 +381,14 @@
             const row = document.createElement('tr');
             const durationStr = entry.minutes ? `${entry.minutes} min` : '-';
             
-            // Apply bank holiday doubling and build service name with labels
+            // The cost from the API already includes late_booking surcharge via calculate_cost()
+            // Only apply bank holiday doubling here
             let displayCost = entry.cost;
             let costLabel = entry.service_name;
             
             // Add Late Booking label if applicable
             if (entry.surcharge_type === 'late_booking') {
                 costLabel += ' (Late Charge)';
-                displayCost *= 2;
             }
             
             // Add Bank Holiday label if applicable
@@ -471,17 +471,18 @@
                         const durationText = entry.service_code === 'H' ? `${entry.minutes} min` : '';
                         
                         // Build service name with labels
+                        // The cost from the API already includes late_booking surcharge via calculate_cost()
+                        // Only apply bank holiday doubling here
                         let serviceName = entry.service_name;
                         let displayCost = entry.cost;
                         
                         // Add Late Booking label if applicable
                         if (entry.surcharge_type === 'late_booking') {
                             serviceName += ' (Late Charge)';
-                            displayCost *= 2;
                         }
                         
-                        // Add Bank Holiday label if applicable
-                        if (isBankHoliday) {
+                        // Add Bank Holiday label if applicable (check this specific entry's date)
+                        if (bankHolidayDates.includes(entry.date)) {
                             serviceName += ' (Bank Holiday Double Rate)';
                             displayCost *= 2;
                         }
