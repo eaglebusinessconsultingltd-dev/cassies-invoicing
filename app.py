@@ -1292,7 +1292,7 @@ def generate_invoice_pdf(owner_id, month, year, work_entries):
     
     # INVOICE on left and Company on right (separate paragraph)
     invoice_para = Paragraph('<b>INVOICE</b>', invoice_style)
-    company_para = Paragraph('<b>Cassie White Equestrian Services</b>', company_style)
+    company_para = Paragraph('<b>Cassie White Equine Services</b>', company_style)
     
     # Create a simple table to position them side by side
     header_layout = Table([
@@ -1493,7 +1493,7 @@ def generate_invoice_pdf(owner_id, month, year, work_entries):
     
     # Payment details
     elements.append(Paragraph('<b>Invoice Due For Immediate Payment Please:</b>', styles['Normal']))
-    elements.append(Paragraph('Cassie White Equestrian Services Ltd<br/>Sort code: 60-83-71<br/>Account number: 62430438', styles['Normal']))
+    elements.append(Paragraph('Cassie White Equine Services Ltd<br/>Sort code: 60-83-71<br/>Account number: 62430438', styles['Normal']))
     elements.append(Paragraph('<i>Use your horse\'s name as a reference</i>', styles['Normal']))
     elements.append(Spacer(1, 0.3*cm))
     
