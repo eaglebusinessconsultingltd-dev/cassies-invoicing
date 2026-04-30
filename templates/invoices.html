@@ -42,6 +42,10 @@
 <div class="card">
     <h2>Invoice History</h2>
     
+    <div style="margin-bottom: 1rem;">
+        <button class="button" id="btn-download-all" style="display: none;">Download All as ZIP</button>
+    </div>
+    
     <div id="invoice-history" class="loading">
         <div class="spinner"></div>
         Loading invoice history...
@@ -262,14 +266,37 @@
     async function loadInvoiceHistory() {
         try {
             const response = await fetch('/api/invoices');
-            const invoices = await response.json();
+            let invoices = await response.json();
             
             const historyEl = document.getElementById('invoice-history');
+            const downloadBtn = document.getElementById('btn-download-all');
             
             if (invoices.length === 0) {
                 historyEl.innerHTML = '<p>No invoices generated yet.</p>';
+                downloadBtn.style.display = 'none';
                 return;
             }
+            
+            // Handle duplicates: for each owner/month/year combo, keep only the newest
+            const invoiceMap = {};
+            invoices.forEach(invoice => {
+                const key = `${invoice.owner_name}-${invoice.month}-${invoice.year}`;
+                if (!invoiceMap[key] || new Date(invoice.created_at) > new Date(invoiceMap[key].created_at)) {
+                    if (invoiceMap[key]) {
+                        // Delete the older one
+                        fetch(`/api/invoices/${invoiceMap[key].id}`, { method: 'DELETE' }).catch(e => console.error(e));
+                    }
+                    invoiceMap[key] = invoice;
+                } else {
+                    // Delete this older one
+                    fetch(`/api/invoices/${invoice.id}`, { method: 'DELETE' }).catch(e => console.error(e));
+                }
+            });
+            
+            // Get unique invoices (newest of each owner/month/year)
+            invoices = Object.values(invoiceMap).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+            
+            downloadBtn.style.display = 'block';
             
             let html = '<table><thead><tr><th>Owner</th><th>Month</th><th>Created</th><th>Action</th></tr></thead><tbody>';
             invoices.forEach(invoice => {
@@ -315,6 +342,32 @@
             showAlert('Error: ' + error.message, 'error');
         }
     }
+    
+    // Download all invoices as ZIP
+    async function downloadAllInvoices() {
+        try {
+            const response = await fetch('/api/invoices/download-all');
+            if (response.ok) {
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `invoices-${new Date().toISOString().split('T')[0]}.zip`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                a.remove();
+                showAlert('Downloaded all invoices');
+            } else {
+                showAlert('Error downloading invoices', 'error');
+            }
+        } catch (error) {
+            showAlert('Error: ' + error.message, 'error');
+        }
+    }
+    
+    // Set up download all button
+    document.getElementById('btn-download-all').addEventListener('click', downloadAllInvoices);
     
     // Load bank holidays for preview detection
     let bankHolidaysCache = [];
