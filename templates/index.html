@@ -69,13 +69,10 @@
     async function loadSummary() {
         try {
             const today = new Date();
-            const month_start = new Date(today.getFullYear(), today.getMonth(), 1);
-            const month_end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+            const month = today.getMonth() + 1;  // 1-based (1=Jan, 4=Apr, etc.)
+            const year = today.getFullYear();
             
-            const start_str = month_start.toISOString().split('T')[0];
-            const end_str = month_end.toISOString().split('T')[0];
-            
-            const response = await fetch(`/api/work-entries?start=${start_str}&end=${end_str}`);
+            const response = await fetch(`/api/work-entries?month=${month}&year=${year}`);
             const entries = await response.json();
             
             const owners = new Set(entries.map(e => e.owner_name));
