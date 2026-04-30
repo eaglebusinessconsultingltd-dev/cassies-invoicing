@@ -7,12 +7,11 @@
     
     <div id="alert-container"></div>
     
-    <div class="form-group">
-        <label for="work-date">Date <span style="color: red;">*</span></label>
-        <input type="date" id="work-date" required>
-    </div>
-    
     <div class="grid">
+        <div>
+            <label for="work-date">Date <span style="color: red;">*</span></label>
+            <input type="date" id="work-date" required style="cursor: pointer;">
+        </div>
         <div>
             <label for="work-horse">Horse <span style="color: red;">*</span></label>
             <select id="work-horse" required>
@@ -382,9 +381,17 @@
             const row = document.createElement('tr');
             const durationStr = entry.minutes ? `${entry.minutes} min` : '-';
             
-            // Apply bank holiday doubling to individual entry cost for display
+            // Apply bank holiday doubling and build service name with labels
             let displayCost = entry.cost;
             let costLabel = entry.service_name;
+            
+            // Add Late Booking label if applicable
+            if (entry.surcharge_type === 'late_booking') {
+                costLabel += ' (Late Charge)';
+                displayCost *= 2;
+            }
+            
+            // Add Bank Holiday label if applicable
             if (isBankHoliday) {
                 displayCost *= 2;
                 costLabel += ' (Bank Holiday Double Rate)';
@@ -463,16 +470,36 @@
             
             Object.keys(grouped).sort().reverse().forEach(date => {
                 Object.keys(grouped[date]).sort().forEach(owner => {
+                    // Check if date is a bank holiday
+                    const isBankHoliday = bankHolidayDates.includes(date);
+                    
                     grouped[date][owner].forEach((entry, idx) => {
                         // Show duration for Hold services (code 'H'), blank otherwise
                         const durationText = entry.service_code === 'H' ? `${entry.minutes} min` : '';
+                        
+                        // Build service name with labels
+                        let serviceName = entry.service_name;
+                        let displayCost = entry.cost;
+                        
+                        // Add Late Booking label if applicable
+                        if (entry.surcharge_type === 'late_booking') {
+                            serviceName += ' (Late Charge)';
+                            displayCost *= 2;
+                        }
+                        
+                        // Add Bank Holiday label if applicable
+                        if (isBankHoliday) {
+                            serviceName += ' (Bank Holiday Double Rate)';
+                            displayCost *= 2;
+                        }
+                        
                         html += `<tr>
                             <td data-label="Date">${idx === 0 ? date : ''}</td>
                             <td data-label="Owner">${idx === 0 ? owner : ''}</td>
                             <td data-label="Horse">${entry.horse_name}</td>
-                            <td data-label="Service">${entry.service_name}</td>
+                            <td data-label="Service">${serviceName}</td>
                             <td data-label="Duration">${durationText}</td>
-                            <td data-label="Cost">£${entry.cost.toFixed(2)}</td>
+                            <td data-label="Cost">£${displayCost.toFixed(2)}</td>
                             <td data-label="Action"><button class="button danger" onclick="deleteEntry(${entry.id})">Delete</button></td>
                         </tr>`;
                     });
