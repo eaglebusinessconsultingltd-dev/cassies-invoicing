@@ -696,12 +696,6 @@
         }
     });
     
-    // Initialize
-    loadOwners();
-    loadHorses();
-    loadServices();
-    loadHoldPricing();
-    
     // ========== HOLD PRICING TIERS ==========
     
     const holdPricingData = {
@@ -750,6 +744,12 @@
             showAlert('Error: ' + error.message, 'error');
         }
     }
+    
+    // Initialize
+    loadOwners();
+    loadHorses();
+    loadServices();
+    loadHoldPricing();
     
     // ========== BANK HOLIDAYS ==========
     async function loadBankHolidays() {
