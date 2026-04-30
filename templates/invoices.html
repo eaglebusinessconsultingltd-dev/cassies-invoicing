@@ -214,17 +214,17 @@
                     const dateObj = new Date(entry.date);
                     const dateStr = dateObj.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
                     
-                    // Apply bank holiday doubling and late booking per entry
-                    let displayCost = entry.cost;
+                    // Calculate cost: base * (2 if late_booking) * (2 if bank_holiday)
+                    let displayCost = entry.base_cost;
                     let serviceName = entry.service_name;
                     
-                    // Add Late Booking label if applicable
+                    // Add Late Booking label and apply doubling
                     if (entry.surcharge_type === 'late_booking') {
-                        serviceName += ' (Late Charge)';
                         displayCost *= 2;
+                        serviceName += ' (Late Charge)';
                     }
                     
-                    // Add Bank Holiday label if applicable
+                    // Add Bank Holiday label and apply doubling
                     if (isBankHoliday(entry.date)) {
                         displayCost *= 2;
                         serviceName += ' (Bank Holiday Double Rate)';

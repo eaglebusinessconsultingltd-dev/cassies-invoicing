@@ -457,7 +457,8 @@ def get_work_entries():
         'service_code': entry.service.code,
         'service_name': entry.service.name,
         'minutes': entry.minutes,
-        'cost': entry.calculate_cost(),
+        'base_cost': entry.get_base_cost(),  # Base cost without surcharges
+        'cost': entry.calculate_cost(),  # Cost with late_booking applied (if applicable)
         'surcharge_type': entry.surcharge_type,
     } for entry in entries])
 
