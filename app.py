@@ -149,6 +149,15 @@ class WorkEntry(db.Model):
     def __repr__(self):
         return f'<WorkEntry {self.horse.name} - {self.service.code} on {self.date}>'
     
+    def get_base_cost(self):
+        """Get the base cost without any surcharges."""
+        if self.service.requires_time:
+            # Hold pricing - use the global calculate_hold_price function
+            return calculate_hold_price(self.minutes)
+        else:
+            # Fixed price
+            return self.service.base_price
+    
     def calculate_cost(self):
         """Calculate cost based on service type, duration, and surcharges."""
         base_cost = 0
@@ -1376,8 +1385,10 @@ def generate_invoice_pdf(owner_id, month, year, work_entries):
                     if entry.surcharge_type == 'late_booking':
                         service_name += ' (Late Charge)'
                     
-                    # Calculate cost and apply bank holiday doubling if applicable
-                    cost = entry.calculate_cost()
+                    # Calculate cost properly: base * (2 if late_booking) * (2 if bank_holiday)
+                    cost = entry.get_base_cost()
+                    if entry.surcharge_type == 'late_booking':
+                        cost *= 2
                     if entry.is_bank_holiday():
                         cost *= 2
                         service_name += ' (Bank Holiday Double Rate)'
@@ -1395,7 +1406,7 @@ def generate_invoice_pdf(owner_id, month, year, work_entries):
     for horse in horses:
         horse_entries = [e for e in work_entries if e.horse.name == horse]
         horse_total = sum(
-            e.calculate_cost() * 2 if e.is_bank_holiday() else e.calculate_cost()
+            (e.get_base_cost() * (2 if e.surcharge_type == 'late_booking' else 1) * (2 if e.is_bank_holiday() else 1))
             for e in horse_entries
         )
         subtotal_row.append('')  # Empty service cell
@@ -1470,9 +1481,9 @@ def generate_invoice_pdf(owner_id, month, year, work_entries):
     elements.append(table)
     elements.append(Spacer(1, 0.4*cm))
     
-    # Grand total - line items already have bank holiday doubling applied
+    # Grand total - apply surcharges correctly
     total = sum(
-        e.calculate_cost() * 2 if e.is_bank_holiday() else e.calculate_cost()
+        (e.get_base_cost() * (2 if e.surcharge_type == 'late_booking' else 1) * (2 if e.is_bank_holiday() else 1))
         for e in work_entries
     )
     
