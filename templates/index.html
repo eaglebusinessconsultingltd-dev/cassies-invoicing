@@ -18,14 +18,6 @@
 
 <div class="grid">
     <div class="card">
-        <h3>📋 Services Available</h3>
-        <div id="services-list" class="loading">
-            <div class="spinner"></div>
-            Loading services...
-        </div>
-    </div>
-    
-    <div class="card">
         <h3>📊 This Month Summary</h3>
         <div id="summary-stats">
             <p>Work entries: <strong id="work-count">0</strong></p>
@@ -35,33 +27,25 @@
     </div>
 </div>
 
+<!-- Summary by Day -->
+<div class="card">
+    <h2>This Month - Summary by Day</h2>
+    <div id="summary-by-day" class="loading">
+        <div class="spinner"></div>
+        Loading summary...
+    </div>
+</div>
+
 <script>
-    // Load services
-    async function loadServices() {
+    // Load bank holidays for checking
+    let bankHolidayDates = [];
+    async function loadBankHolidays() {
         try {
-            const response = await fetch('/api/services');
-            const services = await response.json();
-            
-            const listEl = document.getElementById('services-list');
-            
-            if (services.length === 0) {
-                listEl.innerHTML = '<p>No services configured.</p>';
-                return;
-            }
-            
-            let html = '<table><thead><tr><th>Code</th><th>Service</th><th>Price</th></tr></thead><tbody>';
-            services.forEach(service => {
-                const price = service.requires_time 
-                    ? `Variable (from £${service.base_price.toFixed(2)})`
-                    : `£${service.base_price.toFixed(2)}`;
-                html += `<tr><td data-label="Code"><strong>${service.code}</strong></td><td data-label="Service">${service.name}</td><td data-label="Price">${price}</td></tr>`;
-            });
-            html += '</tbody></table>';
-            
-            listEl.innerHTML = html;
+            const response = await fetch('/api/bank-holidays');
+            const holidays = await response.json();
+            bankHolidayDates = holidays.map(h => h.date);
         } catch (error) {
-            console.error('Error loading services:', error);
-            document.getElementById('services-list').innerHTML = '<p class="alert alert-error">Error loading services.</p>';
+            console.error('Error loading bank holidays:', error);
         }
     }
     
@@ -76,7 +60,18 @@
             const entries = await response.json();
             
             const owners = new Set(entries.map(e => e.owner_name));
-            const total = entries.reduce((sum, e) => sum + e.cost, 0);
+            
+            // Calculate total with surcharges: base * (2 if late_booking) * (2 if bank_holiday)
+            const total = entries.reduce((sum, e) => {
+                let cost = e.base_cost;
+                if (e.surcharge_type === 'late_booking') {
+                    cost *= 2;
+                }
+                if (bankHolidayDates.includes(e.date)) {
+                    cost *= 2;
+                }
+                return sum + cost;
+            }, 0);
             
             document.getElementById('work-count').textContent = entries.length;
             document.getElementById('owner-count').textContent = owners.size;
@@ -86,11 +81,118 @@
         }
     }
     
+    // Load summary by day
+    async function loadSummaryByDay() {
+        try {
+            const today = new Date();
+            const month = today.getMonth() + 1;
+            const year = today.getFullYear();
+            
+            const response = await fetch(`/api/work-entries?month=${month}&year=${year}`);
+            const entries = await response.json();
+            
+            if (entries.length === 0) {
+                document.getElementById('summary-by-day').innerHTML = '<p>No work entries for this month.</p>';
+                return;
+            }
+            
+            // Group by date
+            const byDate = {};
+            entries.forEach(entry => {
+                if (!byDate[entry.date]) {
+                    byDate[entry.date] = [];
+                }
+                byDate[entry.date].push(entry);
+            });
+            
+            // Sort dates
+            const sortedDates = Object.keys(byDate).sort();
+            
+            let html = '';
+            sortedDates.forEach(date => {
+                const dateObj = new Date(date);
+                const dateStr = dateObj.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: '2-digit' });
+                const dayEntries = byDate[date];
+                
+                html += `
+                    <div style="margin-bottom: 2rem;">
+                        <h4>${dateStr}</h4>
+                        <table style="width: 100%;">
+                            <thead>
+                                <tr style="background: #34495e; color: white;">
+                                    <th style="padding: 0.5rem; text-align: left;">Horse</th>
+                                    <th style="padding: 0.5rem; text-align: left;">Service</th>
+                                    <th style="padding: 0.5rem; text-align: right;">Charge</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                `;
+                
+                dayEntries.forEach(entry => {
+                    // Calculate cost: base * (2 if late_booking) * (2 if bank_holiday)
+                    let charge = entry.base_cost;
+                    let serviceName = entry.service_name;
+                    
+                    if (entry.surcharge_type === 'late_booking') {
+                        charge *= 2;
+                        serviceName += ' (Late Charge)';
+                    }
+                    
+                    if (bankHolidayDates.includes(entry.date)) {
+                        charge *= 2;
+                        serviceName += ' (Bank Holiday Double Rate)';
+                    }
+                    
+                    html += `
+                        <tr>
+                            <td data-label="Horse" style="padding: 0.5rem;">${entry.horse_name}</td>
+                            <td data-label="Service" style="padding: 0.5rem;">${serviceName}</td>
+                            <td data-label="Charge" style="padding: 0.5rem; text-align: right;"><strong>£${charge.toFixed(2)}</strong></td>
+                        </tr>
+                    `;
+                });
+                
+                // Day total
+                const dayTotal = dayEntries.reduce((sum, e) => {
+                    let cost = e.base_cost;
+                    if (e.surcharge_type === 'late_booking') {
+                        cost *= 2;
+                    }
+                    if (bankHolidayDates.includes(e.date)) {
+                        cost *= 2;
+                    }
+                    return sum + cost;
+                }, 0);
+                
+                html += `
+                            </tbody>
+                        </table>
+                        <div style="text-align: right; padding: 0.5rem; border-top: 2px solid #34495e;">
+                            <strong>Day Total: £${dayTotal.toFixed(2)}</strong>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            document.getElementById('summary-by-day').innerHTML = html;
+        } catch (error) {
+            console.error('Error loading summary by day:', error);
+            document.getElementById('summary-by-day').innerHTML = '<p class="alert alert-error">Error loading summary.</p>';
+        }
+    }
+    
     // Load on page load
-    loadServices();
-    loadSummary();
+    loadBankHolidays().then(() => {
+        loadSummary();
+        loadSummaryByDay();
+    });
     
     // Refresh every 30 seconds
-    setInterval(loadSummary, 30000);
+    setInterval(() => {
+        loadBankHolidays().then(() => {
+            loadSummary();
+            loadSummaryByDay();
+        });
+    }, 30000);
 </script>
 {% endblock %}
