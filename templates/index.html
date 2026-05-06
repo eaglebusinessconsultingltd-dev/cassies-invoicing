@@ -117,15 +117,7 @@
                 html += `
                     <div style="margin-bottom: 2rem;">
                         <h4>${dateStr}</h4>
-                        <table style="width: 100%; font-size: 0.85rem;">
-                            <thead>
-                                <tr style="background: #34495e; color: white;">
-                                    <th style="padding: 0.35rem 0.5rem; text-align: left;">Horse</th>
-                                    <th style="padding: 0.35rem 0.5rem; text-align: left;">Service</th>
-                                    <th style="padding: 0.35rem 0.5rem; text-align: right; white-space: nowrap;">Charge</th>
-                                </tr>
-                            </thead>
-                            <tbody>
+                        <div style="font-size: 0.8rem;">
                 `;
                 
                 dayEntries.forEach(entry => {
@@ -144,11 +136,11 @@
                     }
                     
                     html += `
-                        <tr>
-                            <td data-label="Horse" style="padding: 0.35rem 0.5rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${entry.horse_name}</td>
-                            <td data-label="Service" style="padding: 0.35rem 0.5rem;">${serviceName}</td>
-                            <td data-label="Charge" style="padding: 0.35rem 0.5rem; text-align: right; white-space: nowrap;"><strong>£${charge.toFixed(2)}</strong></td>
-                        </tr>
+                        <div style="display: grid; grid-template-columns: 1fr 2fr 0.8fr; gap: 0.5rem; padding: 0.4rem 0; border-bottom: 1px solid #eee; align-items: center;">
+                            <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${entry.horse_name}</span>
+                            <span>${serviceName}</span>
+                            <span style="text-align: right; white-space: nowrap;"><strong>£${charge.toFixed(2)}</strong></span>
+                        </div>
                     `;
                 });
                 
@@ -165,9 +157,8 @@
                 }, 0);
                 
                 html += `
-                            </tbody>
-                        </table>
-                        <div style="text-align: right; padding: 0.5rem; border-top: 2px solid #34495e; font-size: 0.9rem;">
+                        </div>
+                        <div style="text-align: right; padding: 0.5rem 0; border-top: 2px solid #34495e; font-size: 0.9rem;">
                             <strong>Day Total: £${dayTotal.toFixed(2)}</strong>
                         </div>
                     </div>
