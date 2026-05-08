@@ -465,10 +465,10 @@
                 const dateObj = new Date(date);
                 const dateStr = dateObj.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: '2-digit' });
                 
-                html += `<div style="margin-bottom: 2rem; margin-left: 0.2rem; margin-right: 0.2rem;">
-                    <h4 style="margin: 0 0 0.5rem 0;">${dateStr}</h4>
+                html += `<div style="margin-bottom: 2rem; margin-left: 0; margin-right: 0;">
+                    <h4 style="margin: 0 0 0.5rem 0.5rem;">${dateStr}</h4>
                     <div style="font-size: 0.8rem;">
-                        <div style="display: grid; grid-template-columns: 0.8fr 0.8fr 1.5fr 0.6fr 0.6fr; gap: 0.4rem; padding: 0.4rem 0; font-weight: bold; border-bottom: 2px solid #34495e;">
+                        <div style="display: grid; grid-template-columns: 0.8fr 0.8fr 1.5fr 0.6fr 0.6fr; gap: 0.4rem; padding: 0.4rem 0.3rem; font-weight: bold; border-bottom: 2px solid #34495e;">
                             <span>Owner</span>
                             <span>Horse</span>
                             <span>Service</span>
@@ -493,7 +493,7 @@
                             displayCost *= 2;
                         }
                         
-                        html += `<div style="display: grid; grid-template-columns: 0.8fr 0.8fr 1.5fr 0.6fr 0.6fr; gap: 0.4rem; padding: 0.3rem 0; border-bottom: 1px solid #eee; align-items: center;">
+                        html += `<div style="display: grid; grid-template-columns: 0.8fr 0.8fr 1.5fr 0.6fr 0.6fr; gap: 0.4rem; padding: 0.3rem 0.3rem; border-bottom: 1px solid #eee; align-items: center;">
                             <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${owner}</span>
                             <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${entry.horse_name}</span>
                             <span>${serviceName}</span>
@@ -506,7 +506,7 @@
                 html += `</div></div>`;
             });
             
-            historyEl.innerHTML = html || '<p style="margin-left: 0.2rem; margin-right: 0.2rem;">No work entries for this month.</p>';
+            historyEl.innerHTML = html || '<p style="margin-left: 0.5rem; margin-right: 0.5rem;">No work entries for this month.</p>';
         } catch (error) {
             document.getElementById('work-history').innerHTML = '<p class="alert alert-error">Error loading history.</p>';
         }
