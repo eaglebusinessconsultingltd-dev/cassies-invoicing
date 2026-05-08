@@ -1,189 +1,483 @@
-{% extends "base.html" %}
-
-{% block content %}
-<div class="card">
-    <h2>Welcome to Cassie's Invoicing System</h2>
-    <p>This app helps you manage work entries and generate invoices for your horse grooming services.</p>
-    
-    <div style="margin-top: 2rem;">
-        <h3>Quick Start</h3>
-        <ol style="margin-left: 1.5rem; line-height: 2;">
-            <li><strong>Add Work:</strong> Go to <a href="/work-entry">Add Work</a> and enter the date, horse, and services performed.</li>
-            <li><strong>Generate Invoice:</strong> Go to <a href="/invoices">Invoices</a> to generate and download PDFs for each owner.</li>
-            <li><strong>View History:</strong> All invoices are saved and can be downloaded anytime.</li>
-            <li><strong>Manage Data:</strong> Update owners, horses, and pricing in <a href="/settings">Settings</a>.</li>
-        </ol>
-    </div>
-</div>
-
-<div class="grid">
-    <div class="card">
-        <h3>📊 This Month Summary</h3>
-        <div id="summary-stats">
-            <p>Work entries: <strong id="work-count">0</strong></p>
-            <p>Owners invoiced: <strong id="owner-count">0</strong></p>
-            <p>Total revenue: <strong id="total-revenue">£0.00</strong></p>
-        </div>
-    </div>
-</div>
-
-<!-- Summary by Day -->
-<div class="card no-padding">
-    <h2 style="padding: 2rem 2rem 0 2rem; margin: 0 0 1rem 0;">This Month - Summary by Day</h2>
-    <div id="summary-by-day" class="loading" style="padding: 2rem;">
-        <div class="spinner"></div>
-        Loading summary...
-    </div>
-</div>
-
-<script>
-    // Load bank holidays for checking
-    let bankHolidayDates = [];
-    async function loadBankHolidays() {
-        try {
-            const response = await fetch('/api/bank-holidays');
-            const holidays = await response.json();
-            bankHolidayDates = holidays.map(h => h.date);
-        } catch (error) {
-            console.error('Error loading bank holidays:', error);
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cassie's Invoicing System</title>
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
-    }
-    
-    // Load summary stats
-    async function loadSummary() {
-        try {
-            const today = new Date();
-            const month = today.getMonth() + 1;  // 1-based (1=Jan, 4=Apr, etc.)
-            const year = today.getFullYear();
-            
-            const response = await fetch(`/api/work-entries?month=${month}&year=${year}`);
-            const entries = await response.json();
-            
-            const owners = new Set(entries.map(e => e.owner_name));
-            
-            // Calculate total with surcharges: base * (2 if late_booking) * (2 if bank_holiday)
-            const total = entries.reduce((sum, e) => {
-                let cost = e.base_cost;
-                if (e.surcharge_type === 'late_booking') {
-                    cost *= 2;
-                }
-                if (bankHolidayDates.includes(e.date)) {
-                    cost *= 2;
-                }
-                return sum + cost;
-            }, 0);
-            
-            document.getElementById('work-count').textContent = entries.length;
-            document.getElementById('owner-count').textContent = owners.size;
-            document.getElementById('total-revenue').textContent = `£${total.toFixed(2)}`;
-        } catch (error) {
-            console.error('Error loading summary:', error);
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+            line-height: 1.6;
         }
-    }
-    
-    // Load summary by day
-    async function loadSummaryByDay() {
-        try {
-            const today = new Date();
-            const month = today.getMonth() + 1;
-            const year = today.getFullYear();
-            
-            const response = await fetch(`/api/work-entries?month=${month}&year=${year}`);
-            const entries = await response.json();
-            
-            if (entries.length === 0) {
-                document.getElementById('summary-by-day').innerHTML = '<p>No work entries for this month.</p>';
-                return;
+        
+        header {
+            background: #2c3e50;
+            color: white;
+            padding: 1rem 2rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        header h1 {
+            font-size: 1.8rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        header p {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+        
+        nav {
+            background: #34495e;
+            padding: 0;
+            display: flex;
+            flex-wrap: wrap;
+        }
+        
+        nav a {
+            color: white;
+            text-decoration: none;
+            padding: 1rem 1.5rem;
+            display: block;
+            transition: background 0.3s;
+            border-bottom: 3px solid transparent;
+        }
+        
+        nav a:hover,
+        nav a.active {
+            background: #2c3e50;
+            border-bottom-color: #3498db;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            padding: 2rem;
+            margin-bottom: 2rem;
+        }
+        
+        .card.no-padding {
+            padding: 0;
+            margin-left: -1rem;
+            margin-right: -1rem;
+            margin-bottom: 2rem;
+            border-radius: 0;
+        }
+        
+        .card h2 {
+            margin-bottom: 1rem;
+            color: #2c3e50;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 0.5rem;
+        }
+        
+        .button {
+            display: inline-block;
+            padding: 0.75rem 1.5rem;
+            background: #3498db;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            border: none;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background 0.3s;
+            margin-right: 0.5rem;
+        }
+        
+        .button:hover {
+            background: #2980b9;
+        }
+        
+        .button.secondary {
+            background: #95a5a6;
+        }
+        
+        .button.secondary:hover {
+            background: #7f8c8d;
+        }
+        
+        .button.danger {
+            background: #e74c3c;
+        }
+        
+        .button.danger:hover {
+            background: #c0392b;
+        }
+        
+        .button.success {
+            background: #27ae60;
+        }
+        
+        .button.success:hover {
+            background: #229954;
+        }
+        
+        input[type="text"],
+        input[type="date"],
+        input[type="number"],
+        select,
+        textarea {
+            width: 100%;
+            padding: 0.75rem;
+            margin: 0.5rem 0 1rem 0;
+            border: 1px solid #bdc3c7;
+            border-radius: 4px;
+            font-family: inherit;
+            font-size: 1rem;
+        }
+        
+        input[type="text"]:focus,
+        input[type="date"]:focus,
+        input[type="number"]:focus,
+        select:focus,
+        textarea:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 5px rgba(52, 152, 219, 0.5);
+        }
+        
+        label {
+            display: block;
+            margin-top: 1rem;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+        }
+        
+        /* Mobile-first responsive adjustments */
+        @media (max-width: 768px) {
+            .card {
+                padding: 1.5rem;
+                margin-bottom: 1.5rem;
             }
             
-            // Group by date
-            const byDate = {};
-            entries.forEach(entry => {
-                if (!byDate[entry.date]) {
-                    byDate[entry.date] = [];
-                }
-                byDate[entry.date].push(entry);
-            });
+            .grid {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+            }
             
-            // Sort dates
-            const sortedDates = Object.keys(byDate).sort();
+            header {
+                padding: 1rem;
+            }
             
-            let html = '';
-            sortedDates.forEach(date => {
-                const dateObj = new Date(date);
-                const dateStr = dateObj.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: '2-digit' });
-                const dayEntries = byDate[date];
-                
-                html += `
-                    <div style="margin-bottom: 2rem; padding: 0;">
-                        <h4 style="padding: 0 2rem; margin: 0 0 0.5rem 0;">${dateStr}</h4>
-                        <div style="font-size: 0.8rem;">
-                `;
-                
-                dayEntries.forEach(entry => {
-                    // Calculate cost: base * (2 if late_booking) * (2 if bank_holiday)
-                    let charge = entry.base_cost;
-                    let serviceName = entry.service_name;
-                    
-                    if (entry.surcharge_type === 'late_booking') {
-                        charge *= 2;
-                        serviceName += ' (Late Charge)';
-                    }
-                    
-                    if (bankHolidayDates.includes(entry.date)) {
-                        charge *= 2;
-                        serviceName += ' (Bank Holiday Double Rate)';
-                    }
-                    
-                    html += `
-                        <div style="display: grid; grid-template-columns: 1fr 2fr 0.8fr; gap: 0.5rem; padding: 0.4rem 2rem; border-bottom: 1px solid #eee; align-items: center;">
-                            <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${entry.horse_name}</span>
-                            <span>${serviceName}</span>
-                            <span style="text-align: right; white-space: nowrap;"><strong>£${charge.toFixed(2)}</strong></span>
-                        </div>
-                    `;
-                });
-                
-                // Day total
-                const dayTotal = dayEntries.reduce((sum, e) => {
-                    let cost = e.base_cost;
-                    if (e.surcharge_type === 'late_booking') {
-                        cost *= 2;
-                    }
-                    if (bankHolidayDates.includes(e.date)) {
-                        cost *= 2;
-                    }
-                    return sum + cost;
-                }, 0);
-                
-                html += `
-                        </div>
-                        <div style="text-align: right; padding: 0.5rem 2rem; border-top: 2px solid #34495e; font-size: 0.9rem;">
-                            <strong>Day Total: £${dayTotal.toFixed(2)}</strong>
-                        </div>
-                    </div>
-                `;
-            });
+            header h1 {
+                font-size: 1.5rem;
+            }
             
-            document.getElementById('summary-by-day').innerHTML = html;
-        } catch (error) {
-            console.error('Error loading summary by day:', error);
-            document.getElementById('summary-by-day').innerHTML = '<p class="alert alert-error">Error loading summary.</p>';
+            nav {
+                flex-direction: column;
+            }
+            
+            nav a {
+                padding: 0.75rem 1rem;
+                border-right: none;
+            }
+            
+            nav a:not(:last-child) {
+                border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            }
         }
-    }
+        
+        @media (max-width: 480px) {
+            .card {
+                padding: 1rem;
+            }
+            
+            .button {
+                display: block;
+                width: 100%;
+                padding: 0.75rem;
+                margin: 0.5rem 0;
+                text-align: center;
+            }
+            
+            .button:hover {
+                margin-right: 0;
+            }
+            
+            input[type="text"],
+            input[type="date"],
+            input[type="number"],
+            select,
+            textarea {
+                font-size: 16px;
+            }
+            
+            /* Mobile table styling */
+            table {
+                width: 100%;
+                border-collapse: collapse;
+            }
+            
+            table thead {
+                display: none;
+            }
+            
+            table tr {
+                display: block;
+                margin-bottom: 1rem;
+                border: 1px solid #ddd;
+                border-radius: 4px;
+                overflow: hidden;
+            }
+            
+            table td {
+                display: block;
+                padding: 0.75rem;
+                border: none;
+                border-bottom: 1px solid #eee;
+            }
+            
+            table td:last-child {
+                border-bottom: none;
+            }
+            
+            table td:before {
+                content: attr(data-label);
+                font-weight: bold;
+                color: #2c3e50;
+                display: block;
+                margin-bottom: 0.5rem;
+                font-size: 0.85rem;
+            }
+        }
+        
+        .alert {
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border-radius: 4px;
+            border-left: 4px solid;
+        }
+        
+        .alert.success {
+            background: #d4edda;
+            color: #155724;
+            border-color: #28a745;
+        }
+        
+        .alert.error {
+            background: #f8d7da;
+            color: #721c24;
+            border-color: #f5c6cb;
+        }
+        
+        .alert.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border-color: #bee5eb;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+        }
+        
+        table th {
+            background: #34495e;
+            color: white;
+            padding: 0.75rem;
+            text-align: left;
+            font-weight: 600;
+        }
+        
+        table td {
+            padding: 0.75rem;
+            border-bottom: 1px solid #ecf0f1;
+        }
+        
+        table tr:hover {
+            background: #f9f9f9;
+        }
+        
+        .text-right {
+            text-align: right;
+        }
+        
+        .text-center {
+            text-align: center;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+        
+        .badge.primary {
+            background: #3498db;
+            color: white;
+        }
+        
+        .badge.success {
+            background: #27ae60;
+            color: white;
+        }
+        
+        .badge.warning {
+            background: #f39c12;
+            color: white;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: #7f8c8d;
+        }
+        
+        .spinner {
+            border: 4px solid #ecf0f1;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        footer {
+            text-align: center;
+            padding: 2rem;
+            color: #7f8c8d;
+            margin-top: 4rem;
+            border-top: 1px solid #ecf0f1;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.4);
+        }
+        
+        .modal.show {
+            display: block;
+        }
+        
+        .modal-content {
+            background-color: white;
+            margin: 5% auto;
+            padding: 2rem;
+            border: 1px solid #888;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 600px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        
+        .modal-header h2 {
+            margin: 0;
+            color: #2c3e50;
+        }
+        
+        .close {
+            color: #aaa;
+            font-size: 2rem;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        
+        .close:hover {
+            color: #000;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>🐴 Cassie's Invoicing System</h1>
+        <p>Horse grooming services management & invoice generation</p>
+    </header>
     
-    // Load on page load
-    loadBankHolidays().then(() => {
-        loadSummary();
-        loadSummaryByDay();
-    });
+    <nav>
+        <a href="/" class="nav-link" data-page="home">Home</a>
+        <a href="/work-entry" class="nav-link" data-page="work-entry">Add Work</a>
+        <a href="/invoices" class="nav-link" data-page="invoices">Invoices</a>
+        <a href="/settings" class="nav-link" data-page="settings">Settings</a>
+        <span style="margin-left: auto; display: flex; align-items: center; padding: 0 1rem; color: white; font-size: 0.9rem;">
+            👤 {{ current_user.username if current_user.is_authenticated else 'Guest' }}
+        </span>
+        <a href="/logout" class="nav-link" style="color: #f39c12;">Logout</a>
+    </nav>
     
-    // Refresh every 30 seconds
-    setInterval(() => {
-        loadBankHolidays().then(() => {
-            loadSummary();
-            loadSummaryByDay();
+    <div class="container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        
+        {% block content %}{% endblock %}
+    </div>
+    
+    <footer>
+        <p>&copy; 2026 Cassie's Invoicing System. Version 1.0</p>
+    </footer>
+    
+    <script>
+        // Simple navigation script
+        document.querySelectorAll('.nav-link').forEach(link => {
+            link.addEventListener('click', function(e) {
+                // Update active state
+                document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+                this.classList.add('active');
+            });
         });
-    }, 30000);
-</script>
-{% endblock %}
+        
+        // Highlight current page
+        const currentPage = window.location.pathname;
+        document.querySelectorAll('.nav-link').forEach(link => {
+            if (link.getAttribute('href') === currentPage) {
+                link.classList.add('active');
+            }
+        });
+    </script>
+    
+    {% block scripts %}{% endblock %}
+</body>
+</html>
