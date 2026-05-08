@@ -459,7 +459,10 @@
             
             // Build history table
             const historyEl = document.getElementById('work-history');
-            let html = '<table><thead><tr><th>Date</th><th>Owner</th><th>Horse</th><th>Service</th><th>Duration</th><th>Cost</th><th>Action</th></tr></thead><tbody>';
+            let html = '<div style="font-size: 0.75rem;">';
+            html += '<div style="display: grid; grid-template-columns: 0.7fr 0.7fr 0.7fr 1.2fr 0.5fr 0.5fr 0.7fr; gap: 0.4rem; padding: 0.4rem 0; font-weight: bold; border-bottom: 2px solid #34495e;">';
+            html += '<span>Date</span><span>Owner</span><span>Horse</span><span>Service</span><span>Dur</span><span>Cost</span><span>Action</span>';
+            html += '</div>';
             
             Object.keys(grouped).sort().reverse().forEach(date => {
                 Object.keys(grouped[date]).sort().forEach(owner => {
@@ -468,11 +471,9 @@
                     
                     grouped[date][owner].forEach((entry, idx) => {
                         // Show duration for Hold services (code 'H'), blank otherwise
-                        const durationText = entry.service_code === 'H' ? `${entry.minutes} min` : '';
+                        const durationText = entry.service_code === 'H' ? `${entry.minutes}m` : '';
                         
                         // Build service name with labels
-                        // The cost from the API already includes late_booking surcharge via calculate_cost()
-                        // Only apply bank holiday doubling here
                         let serviceName = entry.service_name;
                         let displayCost = entry.cost;
                         
@@ -487,20 +488,20 @@
                             displayCost *= 2;
                         }
                         
-                        html += `<tr>
-                            <td data-label="Date">${idx === 0 ? date : ''}</td>
-                            <td data-label="Owner">${idx === 0 ? owner : ''}</td>
-                            <td data-label="Horse">${entry.horse_name}</td>
-                            <td data-label="Service">${serviceName}</td>
-                            <td data-label="Duration">${durationText}</td>
-                            <td data-label="Cost">£${displayCost.toFixed(2)}</td>
-                            <td data-label="Action"><button class="button danger" onclick="deleteEntry(${entry.id})">Delete</button></td>
-                        </tr>`;
+                        html += `<div style="display: grid; grid-template-columns: 0.7fr 0.7fr 0.7fr 1.2fr 0.5fr 0.5fr 0.7fr; gap: 0.4rem; padding: 0.3rem 0; border-bottom: 1px solid #eee; align-items: center;">
+                            <span style="white-space: nowrap;">${idx === 0 ? date : ''}</span>
+                            <span style="white-space: nowrap;">${idx === 0 ? owner : ''}</span>
+                            <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${entry.horse_name}</span>
+                            <span>${serviceName}</span>
+                            <span style="text-align: center;">${durationText}</span>
+                            <span style="text-align: right; white-space: nowrap;"><strong>£${displayCost.toFixed(2)}</strong></span>
+                            <button class="button danger" onclick="deleteEntry(${entry.id})" style="padding: 0.2rem 0.4rem; font-size: 0.7rem;">Del</button>
+                        </div>`;
                     });
                 });
             });
             
-            html += '</tbody></table>';
+            html += '</div>';
             historyEl.innerHTML = html || '<p>No work entries for this month.</p>';
         } catch (error) {
             document.getElementById('work-history').innerHTML = '<p class="alert alert-error">Error loading history.</p>';
