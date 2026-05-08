@@ -28,9 +28,9 @@
 </div>
 
 <!-- Summary by Day -->
-<div class="card">
-    <h2>This Month - Summary by Day</h2>
-    <div id="summary-by-day" class="loading">
+<div class="card no-padding">
+    <h2 style="padding: 2rem 2rem 0 2rem; margin: 0 0 1rem 0;">This Month - Summary by Day</h2>
+    <div id="summary-by-day" class="loading" style="padding: 2rem;">
         <div class="spinner"></div>
         Loading summary...
     </div>
@@ -115,7 +115,7 @@
                 const dayEntries = byDate[date];
                 
                 html += `
-                    <div style="margin-bottom: 2rem;">
+                    <div style="margin-bottom: 2rem; padding: 0 2rem;">
                         <h4>${dateStr}</h4>
                         <div style="font-size: 0.8rem;">
                 `;
