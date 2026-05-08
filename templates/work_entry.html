@@ -465,7 +465,7 @@
                 const dateObj = new Date(date);
                 const dateStr = dateObj.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: '2-digit' });
                 
-                html += `<div style="margin-bottom: 2rem; margin-left: 1rem; margin-right: 1rem;">
+                html += `<div style="margin-bottom: 2rem; margin-left: 0.5rem; margin-right: 0.5rem;">
                     <h4 style="margin: 0 0 0.5rem 0;">${dateStr}</h4>
                     <div style="font-size: 0.8rem;">
                         <div style="display: grid; grid-template-columns: 0.8fr 0.8fr 1.5fr 0.6fr 0.6fr; gap: 0.4rem; padding: 0.4rem 0; font-weight: bold; border-bottom: 2px solid #34495e;">
@@ -506,7 +506,7 @@
                 html += `</div></div>`;
             });
             
-            historyEl.innerHTML = html || '<p style="margin-left: 1rem; margin-right: 1rem;">No work entries for this month.</p>';
+            historyEl.innerHTML = html || '<p style="margin-left: 0.5rem; margin-right: 0.5rem;">No work entries for this month.</p>';
         } catch (error) {
             document.getElementById('work-history').innerHTML = '<p class="alert alert-error">Error loading history.</p>';
         }
