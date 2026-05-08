@@ -198,16 +198,13 @@
                     <div style="margin-bottom: 2rem; padding: 1rem; background: #f9f9f9; border: 1px solid #ddd; border-radius: 4px;">
                         <h3>${owner}</h3>
                         <p><small>Horses: ${horses.join(', ')}</small></p>
-                        <table style="width: 100%; margin: 1rem 0; font-size: 0.9rem;">
-                            <thead>
-                                <tr style="background: #34495e; color: white;">
-                                    <th style="padding: 0.5rem; text-align: left;">Date</th>
-                                    <th style="padding: 0.5rem; text-align: left;">Horse</th>
-                                    <th style="padding: 0.5rem; text-align: left;">Service</th>
-                                    <th style="padding: 0.5rem; text-align: right;">Cost</th>
-                                </tr>
-                            </thead>
-                            <tbody>
+                        <div style="margin: 1rem 0; font-size: 0.8rem;">
+                            <div style="display: grid; grid-template-columns: 0.6fr 0.8fr 1.5fr 0.6fr; gap: 0.5rem; padding: 0.4rem 0; font-weight: bold; border-bottom: 2px solid #34495e;">
+                                <span style="text-align: left;">Date</span>
+                                <span style="text-align: left;">Horse</span>
+                                <span style="text-align: left;">Service</span>
+                                <span style="text-align: right;">Cost</span>
+                            </div>
                 `;
                 
                 ownerEntries.sort((a, b) => new Date(a.date) - new Date(b.date)).forEach(entry => {
@@ -233,18 +230,17 @@
                     total += displayCost;
                     
                     html += `
-                        <tr>
-                            <td style="padding: 0.5rem;">${dateStr}</td>
-                            <td style="padding: 0.5rem;">${entry.horse_name}</td>
-                            <td style="padding: 0.5rem;">${serviceName}</td>
-                            <td style="padding: 0.5rem; text-align: right;">£${displayCost.toFixed(2)}</td>
-                        </tr>
+                        <div style="display: grid; grid-template-columns: 0.6fr 0.8fr 1.5fr 0.6fr; gap: 0.5rem; padding: 0.3rem 0; border-bottom: 1px solid #eee; align-items: center;">
+                            <span style="white-space: nowrap;">${dateStr}</span>
+                            <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${entry.horse_name}</span>
+                            <span>${serviceName}</span>
+                            <span style="text-align: right; white-space: nowrap;"><strong>£${displayCost.toFixed(2)}</strong></span>
+                        </div>
                     `;
                 });
                 
                 html += `
-                            </tbody>
-                        </table>
+                        </div>
                         <div style="text-align: right; padding-top: 0.5rem; border-top: 2px solid #34495e;">
                             <strong>Subtotal: £${total.toFixed(2)}</strong>
                         </div>
